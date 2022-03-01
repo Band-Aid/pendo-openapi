@@ -15,7 +15,31 @@ tags:
   description: The account endpoint allows you to retrieve a single account’s specific details by supplying an account ID as part of your request. The {accountId} referenced below can be found on the accounts list page or at the end of the url when viewing an account details page.
 - name: Metadata
   description: The metadata endpoint allows to you retrieve and update Account/Visitor Metadata values. Metadata is used to gather insights about the users behavior in your app.
+- name: Visitor
+  description: The visitor endpoint allows you to retrieve visitor specific details by supplying a visitor ID as part of your request. The {visitorId} referenced below can be found on the visitors list page or at the end of the url when viewing a visitor details page.
 paths:
+  /visitor/{visitorId}:
+   get:
+     tags:
+     - Visitor
+     summary: Get Visitor Object
+     parameters:
+       - name: visitorId
+         in: path
+         description: URL encoded visitor id or b64_XXXX, where XXXX is a URL-safe base64 encoded visitor Id
+         required: true
+         schema:
+           type: string
+           format: byte
+     responses:
+       200:
+         description: Response is sent in body
+         content:
+           application/json:
+             schema:
+               $ref: '#/components/schemas/Visitor'
+       400:
+         description: Error while getting visitor no such entity found
   /account/{accountId}:
    get:
       tags:
@@ -157,12 +181,87 @@ paths:
 
 components:
   schemas:
+    Visitor:
+      type: object
+      description: Visitor Object
+      properties:
+        id: 
+          description: Unique identifier for the visitor.
+          type: string
+          example: "4203948023423"
+        email:
+          description: visitor email
+          type: string
+          example: "shinya.hashimoto@zero1.jp"
+        accountIds:
+          type: array
+          example: ["shin nihon prowrestling","zero One"]
+        metadata:
+          type: object
+          properties:
+            agent:
+              type: object
+              properties:
+                email:
+                  type: string
+                  example: shinya.hashimoto@zero1.jp
+                ipaddress: 
+                  type: string
+                  example: "192.168.10.1"
+                language:
+                  type: string
+                  example: "ja"
+            auto:
+              type: object
+              properties:
+                accountid:
+                  type: string
+                accountids:
+                  type: array
+                  example: ["zero one"]
+                firstvisit:
+                  type: integer
+                  example: 1506351511034
+                id:
+                  type: integer
+                  example: 4203948023423
+                idhash:
+                  type: string
+                lastbrowsername: 
+                  type: string
+                  example: Chrome
+                lastbrowserversion: 
+                  type: string
+                  example: 99.0.013
+                lastoperatingsystem:
+                  type: string
+                  example: Mac OS X
+                lastservername:
+                  type: string
+                  example: zeroone.jp
+                lastupdated:
+                  type: integer
+                lastuseragent: 
+                  type: string
+                  example: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36"
+                lastvisit:
+                  type: integer
+                  example: 1506976690112
+                nid:
+                  type: string
+                  example: 42
+            visitorId:
+              type: string
+              example: 9080i
+              description: The Account ID last associated with the visitor.       
     Account:
       type: object
+      description: Account object
       properties:
         id:
           type: string
           example: "zeta and sons"
+          description: Unique identifier for the visitor.
         metadata:
           type: object
           properties:
@@ -362,12 +461,6 @@ components:
                Type:
                  type: string
                  example: string
-
-             
-
-        
-        
-      
   securitySchemes:
     pendo_integration_key:
       type: apiKey
