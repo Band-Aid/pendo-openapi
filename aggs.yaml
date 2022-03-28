@@ -1,0 +1,182 @@
+---
+openapi: 3.0.3
+info:
+  title: Pendo Demo
+  version: 1.0.0
+  contact: {}
+servers:
+  - url: "https://app.pendo.io"
+paths:
+  /api/v1/aggregation:
+    post:
+      tags:
+        - Aggregation
+      summary: Web vs iOS Platform Usage - Last 30 Days
+      description: Web vs iOS Platform Usage - Last 30 Days
+      operationId: webVsIOsPlatformUsageLast30Days
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                request:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                      example: web-vs-ios-platforms
+                    pipeline:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          spawn:
+                            type: array
+                            items:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  identified:
+                                    type: string
+                                    example: visitorId
+                                  reduce:
+                                    type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        Native iOS app:
+                                          type: object
+                                          properties:
+                                            sum:
+                                              type: string
+                                              example: numMinutes
+                                    example:
+                                      - Native iOS app:
+                                          sum: numMinutes
+                                  source:
+                                    type: object
+                                    properties:
+                                      events:
+                                        type: object
+                                        properties:
+                                          eventClass:
+                                            type: string
+                                            example: ios
+                                      timeSeries:
+                                        type: object
+                                        properties:
+                                          count:
+                                            type: number
+                                            example: -30
+                                          first:
+                                            type: string
+                                            example: now()
+                                          period:
+                                            type: string
+                                            example: dayRange
+                              example:
+                                - source:
+                                    events:
+                                      eventClass: ios
+                                    timeSeries:
+                                      count: -30
+                                      first: now()
+                                      period: dayRange
+                                - identified: visitorId
+                                - reduce:
+                                    - Native iOS app:
+                                        sum: numMinutes
+                            example:
+                              - - source:
+                                    events:
+                                      eventClass: ios
+                                    timeSeries:
+                                      count: -30
+                                      first: now()
+                                      period: dayRange
+                                - identified: visitorId
+                                - reduce:
+                                    - Native iOS app:
+                                        sum: numMinutes
+                              - - source:
+                                    events:
+                                      eventClass: web
+                                    timeSeries:
+                                      count: -30
+                                      first: now()
+                                      period: dayRange
+                                - identified: visitorId
+                                - reduce:
+                                    - Web app:
+                                        sum: numMinutes
+                      example:
+                        - spawn:
+                            - - source:
+                                  events:
+                                    eventClass: ios
+                                  timeSeries:
+                                    count: -30
+                                    first: now()
+                                    period: dayRange
+                              - identified: visitorId
+                              - reduce:
+                                  - Native iOS app:
+                                      sum: numMinutes
+                            - - source:
+                                  events:
+                                    eventClass: web
+                                  timeSeries:
+                                    count: -30
+                                    first: now()
+                                    period: dayRange
+                              - identified: visitorId
+                              - reduce:
+                                  - Web app:
+                                      sum: numMinutes
+                    requestId:
+                      type: string
+                      example: web-vs-ios-platforms
+                response:
+                  type: object
+                  properties:
+                    mimeType:
+                      type: string
+                      example: application/json
+            example:
+              request:
+                name: web-vs-ios-platforms
+                pipeline:
+                  - spawn:
+                      - - source:
+                            events:
+                              eventClass: ios
+                            timeSeries:
+                              count: -30
+                              first: now()
+                              period: dayRange
+                        - identified: visitorId
+                        - reduce:
+                            - Native iOS app:
+                                sum: numMinutes
+                      - - source:
+                            events:
+                              eventClass: web
+                            timeSeries:
+                              count: -30
+                              first: now()
+                              period: dayRange
+                        - identified: visitorId
+                        - reduce:
+                            - Web app:
+                                sum: numMinutes
+                requestId: web-vs-ios-platforms
+              response:
+                mimeType: application/json
+      responses:
+        "200":
+          description: ""
+tags:
+  - name: Aggregation
+    description: "https://app.pendo.io/api/v1/aggregation"
