@@ -141,6 +141,8 @@ paths:
           description: The metadata value was updated
         404:
           description: Check to make sure the custom filed exists in Data Mappings.
+      security:
+      - pendo_integration_key: []
   /metadata/{kind}/{group}/value:
     post:
       tags:
@@ -178,6 +180,8 @@ paths:
           description: The format is unacceptable due to malformed JSON or missing field mappings
         408: 
           description: The call took too long and timed out
+      security:
+      - pendo_integration_key: []
 
 components:
   schemas:
