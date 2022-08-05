@@ -16,31 +16,54 @@ tags:
 - name: Metadata
   description: メタデータエンドポイントは、Account/Visitor Metadata の値を取得・更新するためのものです。メタデータは、アプリ内のユーザーの行動に関するインサイトを収集するために使用されます。
 paths:
-  # /account/{accountId}:
-  #  get:
-  #     tags:
-  #     - Account
-  #     summary: アカウントオブジェクトの取得
-  #     operationId: getAccount
-  #     parameters:
-  #     - name: accountId
-  #       in: path
-  #       description: 返すべきアカウントのID。URLエンコードされたアカウントID、またはb64_XXXX。XXXXはURLセーフなbase64エンコードされたアカウントID。
-  #       required: true
-  #       schema:
-  #         type: string
-  #         format: byte
-  #     responses:
-  #         200:
-  #           description: レスポンスはボディとして送信されています
-  #           content:
-  #             application/json:
-  #               schema:
-  #                 $ref: '#/components/schemas/Account'
-  #     security:
-  #     - pendo_integration_key: []
-
-
+  /visitor/{visitorId}:
+   get:
+     tags:
+     - Visitor
+     operationId: getVisitor
+     summary: ビジターオブジェクトの取得
+     parameters:
+       - name: visitorId
+         in: path
+         description: URLエンコードされた訪問者IDまたはb64_XXXX。XXXXはURLセーフのbase64エンコードされた訪問者ID。
+         required: true
+         schema:
+           type: string
+           format: byte
+     responses:
+       200:
+         description: レスポンスはボディにビジターオブジェクトが含まれます。
+         content:
+           application/json:
+             schema:
+               $ref: '#/components/schemas/Visitor'
+       400:
+         description: ビジター取得中にエラーが発生。エンティティが存在しません
+     security:
+      - pendo_integration_key: []
+  /account/{accountId}:
+   get:
+      tags:
+      - Account
+      summary: アカウントオブジェクトの取得
+      operationId: getAccount
+      parameters:
+      - name: accountId
+        in: path
+        description: 返すべきアカウントのID。URLエンコードされたアカウントID、またはb64_XXXX。XXXXはURLセーフなbase64エンコードされたアカウントID。
+        required: true
+        schema:
+          type: string
+          format: byte
+      responses:
+          200:
+            description: レスポンスはボディとして送信されています
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/Account'
+      security:
+      - pendo_integration_key: []
   /metadata/schema/{kind}:
     get:
       tags:
@@ -157,6 +180,79 @@ paths:
 
 components:
   schemas:
+    Visitor:
+      type: object
+      description: ビジターオブジェクトのスキーマ
+      properties:
+        id: 
+          description: ビジターを識別するための固有ID
+          type: string
+          example: "4203948023423"
+        email:
+          description: visitor email
+          type: string
+          example: "shinya.hashimoto@zero1.jp"
+        accountIds:
+          type: array
+          example: ["shin nihon prowrestling","zero One"]
+        metadata:
+          type: object
+          properties:
+            agent:
+              type: object
+              properties:
+                email:
+                  type: string
+                  example: shinya.hashimoto@zero1.jp
+                ipaddress: 
+                  type: string
+                  example: "192.168.10.1"
+                language:
+                  type: string
+                  example: "ja"
+            auto:
+              type: object
+              properties:
+                accountid:
+                  type: string
+                accountids:
+                  type: array
+                  example: ["zero one"]
+                firstvisit:
+                  type: integer
+                  example: 1506351511034
+                id:
+                  type: integer
+                  example: 4203948023423
+                idhash:
+                  type: string
+                lastbrowsername: 
+                  type: string
+                  example: Chrome
+                lastbrowserversion: 
+                  type: string
+                  example: 99.0.013
+                lastoperatingsystem:
+                  type: string
+                  example: Mac OS X
+                lastservername:
+                  type: string
+                  example: zeroone.jp
+                lastupdated:
+                  type: integer
+                lastuseragent: 
+                  type: string
+                  example: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36"
+                lastvisit:
+                  type: integer
+                  example: 1506976690112
+                nid:
+                  type: string
+                  example: 42
+            visitorId:
+              type: string
+              example: 9080i
+              description: ビジターに最後に関連付けられたアカウントID      
     Account:
       type: object
       properties:
@@ -363,11 +459,6 @@ components:
                  type: string
                  example: string
 
-             
-
-        
-        
-      
   securitySchemes:
     pendo_integration_key:
       type: apiKey
