@@ -22,6 +22,7 @@ paths:
    get:
      tags:
      - Visitor
+     operationId: getVisitor
      summary: Get Visitor Object
      parameters:
        - name: visitorId
@@ -40,6 +41,8 @@ paths:
                $ref: '#/components/schemas/Visitor'
        400:
          description: Error while getting visitor no such entity found
+     security:
+      - pendo_integration_key: []
   /account/{accountId}:
    get:
       tags:
@@ -69,6 +72,7 @@ paths:
     get:
       tags:
       - Metadata
+      operationId: getMetadataSchema
       description: 'Gets the metadata schema for a single kind of metadata (visitor or account).'
       parameters:
       - name: kind
@@ -103,6 +107,7 @@ paths:
     put:
       tags:
       - Metadata
+      operationId: updateMetadata
       description: 'Sets the value of an agent or custom metadata field on an account or visitor. If setting value for a custom field, the field must already have been created in the Data Mappings.'
       parameters:
         - name: kind
@@ -147,6 +152,7 @@ paths:
     post:
       tags:
       - Metadata
+      operationId: createMetadata
       description: |
        Sets the value of multiple metadata fields on set of accounts or visitors. AKA: bulk update
        
