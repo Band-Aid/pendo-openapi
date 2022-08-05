@@ -140,6 +140,8 @@ paths:
           description: メタデータの値が更新されました
         404:
           description: Data Mappingsにカスタムファイルが存在することを確認します。
+      security:
+      - pendo_integration_key: []
   /metadata/{kind}/{group}/value:
     post:
       tags:
@@ -177,6 +179,8 @@ paths:
           description: JSON の形式が不正であるか、フィールドのマッピングが欠落しているため、受け入れられません。
         408: 
           description: リクエスト処理に時間がかかりすぎて、タイムアウトしました
+      security:
+      - pendo_integration_key: []
 
 components:
   schemas:
