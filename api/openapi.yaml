@@ -17,6 +17,14 @@ tags:
   description: The metadata endpoint allows to you retrieve and update Account/Visitor Metadata values. Metadata is used to gather insights about the users behavior in your app.
 - name: Visitor
   description: The visitor endpoint allows you to retrieve visitor specific details by supplying a visitor ID as part of your request. The {visitorId} referenced below can be found on the visitors list page or at the end of the url when viewing a visitor details page.
+- name: Guide
+  description: The guide endpoint allows you to retrieve guides specific details. The {guideId} referenced below can be found on the guides list page or at the end of the url when viewing a guide details page.
+- name: Feature
+  description: The feature endpoint allows you to retrieve features specific details. The {featureId} referenced below can be found on the features list page or at the end of the url when viewing a feature details page.
+- name: Page
+  description: The page endpoint allows you to retrieve pages specific details. The {pageId} referenced below can be found on the pages list page or at the end of the url when viewing a page details page.
+- name: Report
+  description: The report endpoint allows you to retrieve a single report’s specific details by supplying a report ID as part of your request. The {reportId} referenced below can be found on the reports list page or at the end of the url when viewing a report details page.
 paths:
   /visitor/{visitorId}:
    get:
@@ -189,6 +197,24 @@ paths:
       security:
       - pendo_integration_key: []
 
+
+
+  /guide:
+    get:
+      tags:
+      - Guide
+      operationId: getGuides
+      description: 'Returns a JSON list of all guides for a subscription.'
+      responses:
+        '200':
+          description: response is sernt as body
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Guide'
+          
 components:
   schemas:
     Visitor:
@@ -295,6 +321,7 @@ components:
                 lastvisited:
                   type: integer
                   example: 1506349414089
+
     accountSchema:
       type: object
       properties:
@@ -471,6 +498,590 @@ components:
                Type:
                  type: string
                  example: string
+    guideSchema:
+      type: array
+      items: 
+        type: object
+        properties: 
+          type: 
+            type: string
+          properties: 
+            type: object
+            properties: 
+              createdByUser: 
+                type: object
+                properties: 
+                  type: 
+                    type: string
+                  properties: 
+                    type: object
+                    properties: 
+                      id: 
+                        type: object
+                        properties: 
+                          type: 
+                            type: string
+                      username: 
+                        type: object
+                        properties: 
+                          type: 
+                            type: string
+                      first: 
+                        type: object
+                        properties: 
+                          type: 
+                            type: string
+                      last: 
+                        type: object
+                        properties: 
+                          type: 
+                            type: string
+                      role: 
+                        type: object
+                        properties: 
+                          type: 
+                            type: string
+                      userType: 
+                        type: object
+                        properties: 
+                          type: 
+                            type: string
+                      hasLoggedIn: 
+                        type: object
+                        properties: 
+                          type: 
+                            type: string
+                      lastLogin: 
+                        type: object
+                        properties: 
+                          type: 
+                            type: string
+                      visitorIds: 
+                        type: object
+                        properties: 
+                          type: 
+                            type: string
+                          items: 
+                            type: array
+                            items: 
+                              type: object
+                              properties: 
+                                type: 
+                                  type: string
+
+              createdAt: 
+                type: object
+                properties: 
+                  type: 
+                    type: string
+              lastUpdatedByUser: 
+                type: object
+                properties: 
+                  type: 
+                    type: string
+                  properties: 
+                    type: object
+                    properties: 
+                      id: 
+                        type: object
+                        properties: 
+                          type: 
+                            type: string
+                      username: 
+                        type: object
+                        properties: 
+                          type: 
+                            type: string
+                      first: 
+                        type: object
+                        properties: 
+                          type: 
+                            type: string
+                      last: 
+                        type: object
+                        properties: 
+                          type: 
+                            type: string
+                      role: 
+                        type: object
+                        properties: 
+                          type: 
+                            type: string
+                      userType: 
+                        type: object
+                        properties: 
+                          type: 
+                            type: string
+                      hasLoggedIn: 
+                        type: object
+                        properties: 
+                          type: 
+                            type: string
+                      lastLogin: 
+                        type: object
+                        properties: 
+                          type: 
+                            type: string
+                      visitorIds: 
+                        type: object
+                        properties: 
+                          type: 
+                            type: string
+                          items: 
+                            type: array
+                            items: 
+                              type: object
+                              properties: 
+                                type: 
+                                  type: string
+              lastUpdatedAt: 
+                type: object
+                properties: 
+                  type: 
+                    type: string
+              kind: 
+                type: object
+                properties: 
+                  type: 
+                    type: string
+              rootVersionId: 
+                type: object
+                properties: 
+                  type: 
+                    type: string
+              stableVersionId: 
+                type: object
+                properties: 
+                  type: 
+                    type: string
+              appId: 
+                type: object
+                properties: 
+                  type: 
+                    type: string
+              appIds: 
+                type: object
+                properties: 
+                  type: 
+                    type: string
+                  items: 
+                    type: array
+                    items: 
+                      type: object
+                      properties: 
+                        type: 
+                          type: string
+              id: 
+                type: object
+                properties: 
+                  type: 
+                    type: string
+              name: 
+                type: object
+                properties: 
+                  type: 
+                    type: string
+              state: 
+                type: object
+                properties: 
+                  type: 
+                    type: string
+              emailState: 
+                type: object
+                properties: 
+                  type: 
+                    type: string
+              launchMethod: 
+                type: object
+                properties: 
+                  type: 
+                    type: string
+              isMultiStep: 
+                type: object
+                properties: 
+                  type: 
+                    type: string
+              isTraining: 
+                type: object
+                properties: 
+                  type: 
+                    type: string
+              steps: 
+                type: object
+                properties: 
+                  type: 
+                    type: string
+                  items: 
+                    type: array
+                    items: 
+                      type: object
+                      properties: 
+                        type: 
+                          type: string
+                        properties: 
+                          type: object
+                          properties: 
+                            id: 
+                              type: object
+                              properties: 
+                                type: 
+                                  type: string
+                            guideId: 
+                              type: object
+                              properties: 
+                                type: 
+                                  type: string
+                            type: 
+                              type: object
+                              properties: 
+                                type: 
+                                  type: string
+                            elementPathRule: 
+                              type: object
+                              properties: 
+                                type: 
+                                  type: string
+                            contentType: 
+                              type: object
+                              properties: 
+                                type: 
+                                  type: string
+                            contentUrl: 
+                              type: object
+                              properties: 
+                                type: 
+                                  type: string
+                            contentUrlCss: 
+                              type: object
+                              properties: 
+                                type: 
+                                  type: string
+                            contentUrlJs: 
+                              type: object
+                              properties: 
+                                type: 
+                                  type: string
+                            rank: 
+                              type: object
+                              properties: 
+                                type: 
+                                  type: string
+                            advanceMethod: 
+                              type: object
+                              properties: 
+                                type: 
+                                  type: string
+                            attributes: 
+                              type: object
+                              properties: 
+                                type: 
+                                  type: string
+                                properties: 
+                                  type: object
+                                  properties: 
+                                    position: 
+                                      type: object
+                                      properties: 
+                                        type: 
+                                          type: string
+                                    color: 
+                                      type: object
+                                      properties: 
+                                        type: 
+                                          type: string
+                                    title: 
+                                      type: object
+                                      properties: 
+                                        type: 
+                                          type: string
+                                    type: 
+                                      type: object
+                                      properties: 
+                                        type: 
+                                          type: string
+                                    width: 
+                                      type: object
+                                      properties: 
+                                        type: 
+                                          type: string
+                                    height: 
+                                      type: object
+                                      properties: 
+                                        type: 
+                                          type: string
+                                    launcherBadgeUrl: 
+                                      type: object
+                                      properties: 
+                                        type: 
+                                          type: string
+                                    contentHostUrl: 
+                                      type: object
+                                      properties: 
+                                        type: 
+                                          type: string
+                                    templateName: 
+                                      type: object
+                                      properties: 
+                                        type: 
+                                          type: string
+                                    html: 
+                                      type: object
+                                      properties: 
+                                        type: 
+                                          type: string
+                                    javascript: 
+                                      type: object
+                                      properties: 
+                                        type: 
+                                          type: string
+                                    css: 
+                                      type: object
+                                      properties: 
+                                        type: 
+                                          type: string
+                                    template: 
+                                      type: object
+                                      properties: 
+                                        type: 
+                                          type: string
+                                    knowledgebase: 
+                                      type: object
+                                      properties: 
+                                        type: 
+                                          type: string
+                                        properties: 
+                                          type: object
+                                          properties: 
+                                            enabled: 
+                                              type: object
+                                              properties: 
+                                                type: 
+                                                  type: string
+                                            title: 
+                                              type: object
+                                              properties: 
+                                                type: 
+                                                  type: string
+                                    whatsnew: 
+                                      type: object
+                                      properties: 
+                                        type: 
+                                          type: string
+                                        properties: 
+                                          type: object
+                                          properties: 
+                                            enabled: 
+                                              type: object
+                                              properties: 
+                                                type: 
+                                                  type: string
+                                            title: 
+                                              type: object
+                                              properties: 
+                                                type: 
+                                                  type: string
+                                    enableSearch: 
+                                      type: object
+                                      properties: 
+                                        type: 
+                                          type: string
+                                    launchType: 
+                                      type: object
+                                      properties: 
+                                        type: 
+                                          type: string
+                                    enabled: 
+                                      type: object
+                                      properties: 
+                                        type: 
+                                          type: string
+                                    guideCssUrl: 
+                                      type: object
+                                      properties: 
+                                        type: 
+                                          type: string
+                                    id: 
+                                      type: object
+                                      properties: 
+                                        type: 
+                                          type: string
+                                    device: 
+                                      type: object
+                                      properties: 
+                                        type: 
+                                          type: string
+                                        properties: 
+                                          type: object
+                                          properties: 
+                                            desktop: 
+                                              type: object
+                                              properties: 
+                                                type: 
+                                                  type: string
+                                            mobile: 
+                                              type: object
+                                              properties: 
+                                                type: 
+                                                  type: string
+                                            iframe: 
+                                              type: object
+                                              properties: 
+                                                type: 
+                                                  type: string
+
+                            lastUpdatedAt: 
+                              type: object
+                              properties: 
+                                type: 
+                                  type: string
+                            resetAt: 
+                              type: object
+                              properties: 
+                                type: 
+                                  type: string
+
+              attributes: 
+                type: object
+                properties: 
+                  type: 
+                    type: string
+                  properties: 
+                    type: object
+                    properties: 
+                      type: 
+                        type: object
+                        properties: 
+                          type: 
+                            type: string
+                      device: 
+                        type: object
+                        properties: 
+                          type: 
+                            type: string
+                          properties: 
+                            type: object
+                            properties: 
+                              type: 
+                                type: object
+                                properties: 
+                                  type: 
+                                    type: string
+
+                      badge: 
+                        type: object
+                        properties: 
+                          type: 
+                            type: string
+                          properties: 
+                            type: object
+                            properties: 
+                              position: 
+                                type: object
+                                properties: 
+                                  type: 
+                                    type: string
+                              color: 
+                                type: object
+                                properties: 
+                                  type: 
+                                    type: string
+                              name: 
+                                type: object
+                                properties: 
+                                  type: 
+                                    type: string
+                              offsets: 
+                                type: object
+                                properties: 
+                                  type: 
+                                    type: string
+                                  properties: 
+                                    type: object
+                                    properties: 
+                                      top: 
+                                        type: object
+                                        properties: 
+                                          type: 
+                                            type: string
+                                      right: 
+                                        type: object
+                                        properties: 
+                                          type: 
+                                            type: string
+                                      left: 
+                                        type: object
+                                        properties: 
+                                          type: 
+                                            type: string
+
+                      priority: 
+                        type: object
+                        properties: 
+                          type: 
+                            type: string
+
+              audienceUiHint: 
+                type: object
+                properties: 
+                  type: 
+                    type: string
+                  properties: 
+                    type: object
+                    properties: 
+                      filters: 
+                        type: object
+                        properties: 
+                          type: 
+                            type: string
+                          items: 
+                            type: object
+                            properties:  
+
+              authoredLanguage: 
+                type: object
+                properties: 
+                  type: 
+                    type: string
+              recurrence: 
+                type: object
+                properties: 
+                  type: 
+                    type: string
+              recurrenceEligibilityWindow: 
+                type: object
+                properties: 
+                  type: 
+                    type: string
+              resetAt: 
+                type: object
+                properties: 
+                  type: 
+                    type: string
+              publishedAt: 
+                type: object
+                properties: 
+                  type: 
+                    type: string
+              currentFirstEligibleToBeSeenAt: 
+                type: object
+                properties: 
+                  type: 
+                    type: string
+              isTopLevel: 
+                type: object
+                properties: 
+                  type: 
+                    type: string
+              isModule: 
+                type: object
+                properties: 
+                  type: 
+                    type: string
+              editorType: 
+                type: object
+                properties: 
+                  type: 
+                    type: string        
   securitySchemes:
     pendo_integration_key:
       type: apiKey
