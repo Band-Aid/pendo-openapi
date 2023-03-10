@@ -2,8 +2,6 @@ openapi: 3.0.1
 info:
   title: Pendo Rest API
   description: 'v1 APIでは、ガイド、ビジターメタデータ、レポートなどのリソースを要求・変更したり、MongoDBのようなクエリ言語を使ってAggregationクエリを作成したりすることができます。Pendo のメインアプリケーションで表示されるグラフやレポートも、すべて同様のクエリで生成されています。'
-  contact:
-    email: help@pendo.io 
   version: 0.0.1
 externalDocs:
   description: Pendo APIについてもっと知る
