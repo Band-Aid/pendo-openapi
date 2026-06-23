@@ -1,266 +1,2105 @@
 openapi: 3.0.1
 info:
-  title: Pendo Rest API
-  description: 'v1 APIでは、ガイド、ビジターメタデータ、レポートなどのリソースを要求・変更したり、MongoDBのようなクエリ言語を使ってAggregationクエリを作成したりすることができます。Pendo のメインアプリケーションで表示されるグラフやレポートも、すべて同様のクエリで生成されています。'
-  version: 0.0.1
+  title: Pendo REST API
+  description: |
+    Pendo API を使用することで、ガイド・ページ・フィーチャー・ビジター/アカウントメタデータ・
+    セグメント・レポートなどのリソースを取得・更新できます。また、MongoDB ライクなパイプライン
+    クエリを使った Aggregation も利用可能で、Pendo UI のグラフ・レポートはすべて同じエンジンで
+    動作しています。
+
+    ## 認証
+    ほとんどのエンドポイントは `x-pendo-integration-key` ヘッダーに **インテグレーションキー** を
+    指定して認証します。
+
+    **トラック** および **Conversations** エンドポイント（`data.pendo.io`）は別途
+    **トラックイベント共有シークレット** を同じヘッダーで使用します。
+
+    ## ベース URL
+    | エンドポイントグループ | ベース URL |
+    |---|---|
+    | REST API | `https://app.pendo.io/api/v1` |
+    | トラック / Conversations | `https://data.pendo.io/data` |
+
+    ## ビジター・アカウント ID のエンコード
+    パスパラメーターには、URLセーフ Base64 エンコードされた ID を `b64_` プレフィックス付きで
+    使用できます（例: `b64_dmlzaXRvcklk`）。URL パスに使用できない文字を含む ID の場合にご利用
+    ください。
+  version: 1.0.0
 externalDocs:
-  description: Pendo APIについてもっと知る
+  description: Pendo 開発者ドキュメント
   url: https://developers.pendo.io/docs/?bash#v1-api
 servers:
-- url:  https://app.pendo.io/api/v1
+  - url: https://app.pendo.io/api/v1
+    description: Pendo REST API
+
 tags:
-# - name: Account
-#   description: アカウントエンドポイントでは、リクエストの一部としてアカウントIDを指定することで、特定のアカウントの詳細を取得することができます。以下に示す {accountId} は、 アカウント一覧ページや、アカウント詳細ページを表示したときの URL の末尾にあります。
-- name: Metadata
-  description: メタデータエンドポイントは、Account/Visitor Metadata の値を取得・更新するためのものです。メタデータは、アプリ内のユーザーの行動に関するインサイトを収集するために使用されます。
+  - name: Admin
+    description: インテグレーションキーの有効性を確認します。
+  - name: Account
+    description: アカウント ID でアカウントオブジェクトを取得します。
+  - name: Visitor
+    description: ビジター ID でビジターオブジェクトおよびアクティビティ履歴を取得します。
+  - name: Page
+    description: タグ付けされたページ定義を取得します。
+  - name: Feature
+    description: タグ付けされたフィーチャー定義を取得します。
+  - name: Track
+    description: |
+      カスタムトラックイベントを送信し、トラックタイプ定義を取得します。
+      トラックイベントは `https://data.pendo.io/data/track` に **トラックイベント共有シークレット**
+      （インテグレーションキーとは別のキー）を使って送信します。
+  - name: BulkDeletion
+    description: GDPR/CCPA 対応のビジター・アカウント一括削除リクエストを送信・監視します。
+  - name: Segment
+    description: ビジターセグメントの作成・更新・削除・エクスポートを行います。
+  - name: Report
+    description: 公開レポートの一覧取得と、結果の JSON/CSV 形式での取得を行います。
+  - name: Guide
+    description: |
+      ガイドの一覧取得・変更履歴の確認・既読リセット・ローカライゼーション（XLIFF）管理を行います。
+  - name: Metadata
+    description: |
+      ビジター・アカウントのエージェント/カスタムメタデータフィールドの読み書き、
+      メタデータスキーマの管理（フィールド作成・削除）、フィールド依存関係の取得を行います。
+  - name: ExcludeList
+    description: サブスクリプションの除外リスト項目と既知のサーバー名を取得します。
+  - name: DataSync
+    description: GCS・S3・Azure の Data Sync 宛先の認証情報をローテーションします。
+  - name: Feedback
+    description: Listen（NPS/フィードバック）アイテムの作成・更新・削除を行います。
+  - name: Conversations
+    description: |
+      Conversations API を使って AI エージェントのインタラクションを記録します。
+      イベントは `https://data.pendo.io/data/agentic` に **トラックイベント共有シークレット**
+      を使って送信します。
+  - name: Aggregation
+    description: |
+      すべての Pendo データソースに対してパイプラインベースの Aggregation クエリを実行します。
+      Pendo UI のすべてのグラフ・レポートはこのエンドポイントで動作しています。
+
 paths:
-  /visitor/{visitorId}:
-   get:
-     tags:
-     - Visitor
-     operationId: getVisitor
-     summary: ビジターオブジェクトの取得
-     parameters:
-       - name: visitorId
-         in: path
-         description: URLエンコードされた訪問者IDまたはb64_XXXX。XXXXはURLセーフのbase64エンコードされた訪問者ID。
-         required: true
-         schema:
-           type: string
-           format: byte
-     responses:
-       200:
-         description: レスポンスはボディにビジターオブジェクトが含まれます。
-         content:
-           application/json:
-             schema:
-               $ref: '#/components/schemas/Visitor'
-       400:
-         description: ビジター取得中にエラーが発生。エンティティが存在しません
-     security:
-      - pendo_integration_key: []
-  /account/{accountId}:
-   get:
-      tags:
-      - Account
-      summary: アカウントオブジェクトの取得
-      operationId: getAccount
-      parameters:
-      - name: accountId
-        in: path
-        description: 返すべきアカウントのID。URLエンコードされたアカウントID、またはb64_XXXX。XXXXはURLセーフなbase64エンコードされたアカウントID。
-        required: true
-        schema:
-          type: string
-          format: byte
-      responses:
-          200:
-            description: レスポンスはボディとして送信されています
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/Account'
-      security:
-      - pendo_integration_key: []
-  /metadata/schema/{kind}:
+
+  # ── Admin ────────────────────────────────────────────────────────────────────
+
+  /token/verify:
     get:
       tags:
-      - Metadata
-      description: '単一の種類のメタデータ（訪問者またはアカウント）のメタデータスキーマを取得します。'
-      parameters:
-      - name: kind
-        in: path
-        description: "メタデータの種類を指定する `visitor`または`account`"
-        required: true
-        schema:
-          type: string
+        - Admin
+      operationId: verifyIntegrationKey
+      summary: インテグレーションキーの検証
+      description: |
+        インテグレーションキーが有効かどうか、および書き込みアクセス権を持つかどうかを確認します。
+        リクエストボディは不要です。`x-pendo-integration-key` ヘッダーのキーが評価されます。
       responses:
-        200:
-          description: |
-            メタデータオブジェクトのコレクションを返します。 
-
-            `Agent`: インストールスニペットを介して渡されるメタデータ
-
-            `Auto`: Pendoによって自動的に生成されたメタデータ
-
-            `Custom`: データ分析に役立つPendo専用カスタムフィールド
-
-            `Pendo`: 訪問者の現在のblacklistguidesの設定を表すメタデータ。
+        '200':
+          description: キーは有効です。レスポンスボディに権限情報が含まれます。
           content:
             application/json:
               schema:
-                allOf:
-                  - $ref: '#/components/schemas/accountSchema'
-                  - $ref: '#/components/schemas/visitorSchema'
+                type: object
+                properties:
+                  write:
+                    type: boolean
+                    description: 書き込みアクセス権の有無。
+        '403':
+          description: キーが無効です。
       security:
         - pendo_integration_key: []
-        
 
-  /metadata/{kind}/{group}/value/{id}/{fieldName}:
+  # ── Visitor ──────────────────────────────────────────────────────────────────
+
+  /visitor/{visitorId}:
+    get:
+      tags:
+        - Visitor
+      operationId: getVisitor
+      summary: ビジターの取得
+      description: |
+        ビジターオブジェクトを返します。`visitorId` にはURLエンコードされた ID、または
+        `b64_` プレフィックス付きのURLセーフ Base64 エンコード ID（例: `b64_dmlzaXRvcklk`）を
+        使用できます。
+      parameters:
+        - name: visitorId
+          in: path
+          required: true
+          description: URLエンコードされたビジター ID、または `b64_<base64>` 形式のビジター ID。
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ビジターオブジェクト。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Visitor'
+        '400':
+          description: ビジターが見つかりません。
+      security:
+        - pendo_integration_key: []
+
+  /visitor/{visitorId}/history:
+    get:
+      tags:
+        - Visitor
+      operationId: getVisitorHistory
+      summary: ビジター履歴の取得
+      description: |
+        `starttime` から始まる 24 時間のビジターアクティビティのサマリーを返します。
+        イベント別の詳細なカウントが必要な場合は Aggregation エンドポイントをご使用ください。
+      parameters:
+        - name: visitorId
+          in: path
+          required: true
+          description: URLエンコードされたビジター ID、または `b64_<base64>` 形式のビジター ID。
+          schema:
+            type: string
+        - name: starttime
+          in: query
+          required: true
+          description: 24 時間ウィンドウの開始時刻（Unix タイムスタンプ、ミリ秒）。
+          schema:
+            type: integer
+            format: int64
+            example: 1506351511034
+      responses:
+        '200':
+          description: 指定期間のビジターアクティビティサマリー。
+          content:
+            application/json:
+              schema:
+                type: object
+      security:
+        - pendo_integration_key: []
+
+  # ── Account ───────────────────────────────────────────────────────────────────
+
+  /account/{accountId}:
+    get:
+      tags:
+        - Account
+      operationId: getAccount
+      summary: アカウントの取得
+      description: |
+        アカウントオブジェクトを返します。`accountId` にはURLエンコードされた ID、または
+        `b64_` プレフィックス付きのURLセーフ Base64 エンコード ID を使用できます。
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          description: URLエンコードされたアカウント ID、または `b64_<base64>` 形式のアカウント ID。
+          schema:
+            type: string
+      responses:
+        '200':
+          description: アカウントオブジェクト。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+      security:
+        - pendo_integration_key: []
+
+  # ── Page ─────────────────────────────────────────────────────────────────────
+
+  /page:
+    get:
+      tags:
+        - Page
+      operationId: listPages
+      summary: ページ一覧の取得
+      description: |
+        サブスクリプションのすべてのタグ付きページを返します。マルチアプリサブスクリプションでは
+        `?expand=*` で全アプリのページを取得、`?appId=<id>` で特定アプリに絞り込めます。
+      parameters:
+        - name: id
+          in: query
+          required: false
+          description: カンマ区切りのページ ID リスト。指定した場合は該当ページのみ返します。
+          schema:
+            type: string
+            example: "pageId1,pageId2"
+        - name: expand
+          in: query
+          required: false
+          description: 全アプリのページを返す場合は `*` を指定。
+          schema:
+            type: string
+            example: "*"
+        - name: appId
+          in: query
+          required: false
+          description: アプリ ID で結果を絞り込みます。
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ページオブジェクトの配列。
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Page'
+      security:
+        - pendo_integration_key: []
+
+  # ── Feature ───────────────────────────────────────────────────────────────────
+
+  /feature:
+    get:
+      tags:
+        - Feature
+      operationId: listFeatures
+      summary: フィーチャー一覧の取得
+      description: |
+        サブスクリプションのすべてのタグ付きフィーチャーを返します。マルチアプリサブスクリプションでは
+        `?expand=*` で全アプリのフィーチャーを取得、`?appId=<id>` で特定アプリに絞り込めます。
+      parameters:
+        - name: id
+          in: query
+          required: false
+          description: カンマ区切りのフィーチャー ID リスト。指定した場合は該当フィーチャーのみ返します。
+          schema:
+            type: string
+            example: "featureId1,featureId2"
+        - name: expand
+          in: query
+          required: false
+          description: 全アプリのフィーチャーを返す場合は `*` を指定。
+          schema:
+            type: string
+            example: "*"
+        - name: appId
+          in: query
+          required: false
+          description: アプリ ID で結果を絞り込みます。
+          schema:
+            type: string
+      responses:
+        '200':
+          description: フィーチャーオブジェクトの配列。
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Feature'
+      security:
+        - pendo_integration_key: []
+
+  # ── Track ─────────────────────────────────────────────────────────────────────
+
+  /tracktype:
+    get:
+      tags:
+        - Track
+      operationId: listTrackTypes
+      summary: トラックタイプ一覧の取得
+      description: |
+        サブスクリプションのすべてのトラックイベントタイプ定義を返します。
+        マルチアプリサブスクリプションでは `?expand=*` または `?appId=<id>` を使用できます。
+      parameters:
+        - name: id
+          in: query
+          required: false
+          description: カンマ区切りのトラックタイプ ID リスト。
+          schema:
+            type: string
+        - name: expand
+          in: query
+          required: false
+          schema:
+            type: string
+            example: "*"
+        - name: appId
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: トラックタイプオブジェクトの配列。
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TrackType'
+      security:
+        - pendo_integration_key: []
+
+  # ── Bulk Deletion (GDPR / CCPA) ──────────────────────────────────────────────
+
+  /bulkdelete:
+    get:
+      tags:
+        - BulkDeletion
+      operationId: listBulkDeletions
+      summary: 一括削除リクエスト一覧の取得
+      description: 未完了の一括削除リクエストをすべて返します。
+      responses:
+        '200':
+          description: 一括削除リクエストオブジェクトの配列。
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BulkDeletionRequest'
+      security:
+        - pendo_integration_key: []
+
+  /bulkdelete/{id}:
+    get:
+      tags:
+        - BulkDeletion
+      operationId: getBulkDeletion
+      summary: 一括削除ステータスの取得
+      description: |
+        特定の一括削除リクエストのステータスを返します。完了済みの削除も ID で取得できます。
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 一括削除リクエストの ID。
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 一括削除リクエストオブジェクト。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkDeletionRequest'
+      security:
+        - pendo_integration_key: []
+
+  /bulkdelete/visitor:
+    post:
+      tags:
+        - BulkDeletion
+      operationId: bulkDeleteVisitors
+      summary: ビジターの一括削除
+      description: |
+        指定したビジターのすべてのデータを完全に削除します。
+        GDPR/CCPA の消去権（忘れられる権利）への対応に使用します。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - visitors
+              properties:
+                visitors:
+                  type: array
+                  description: 削除するビジター ID のリスト。
+                  items:
+                    type: string
+            example:
+              visitors:
+                - "visitorId1"
+                - "visitorId2"
+      responses:
+        '200':
+          description: 削除リクエストを受け付けました。新しいリクエストオブジェクトを返します。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkDeletionRequest'
+        '400':
+          description: リクエストボディに ID が含まれていません。
+      security:
+        - pendo_integration_key: []
+
+  /bulkdelete/account:
+    post:
+      tags:
+        - BulkDeletion
+      operationId: bulkDeleteAccounts
+      summary: アカウントの一括削除
+      description: |
+        指定したアカウントのすべてのデータを完全に削除します。
+        GDPR/CCPA の消去権への対応に使用します。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - accounts
+              properties:
+                accounts:
+                  type: array
+                  description: 削除するアカウント ID のリスト。
+                  items:
+                    type: string
+            example:
+              accounts:
+                - "accountId1"
+                - "accountId2"
+      responses:
+        '200':
+          description: 削除リクエストを受け付けました。新しいリクエストオブジェクトを返します。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkDeletionRequest'
+        '400':
+          description: リクエストボディに ID が含まれていません。
+      security:
+        - pendo_integration_key: []
+
+  # ── Segment ───────────────────────────────────────────────────────────────────
+
+  /segment:
+    get:
+      tags:
+        - Segment
+      operationId: listSegments
+      summary: セグメント一覧の取得
+      description: サブスクリプションの共有（全員）セグメントをすべて返します。
+      responses:
+        '200':
+          description: セグメントオブジェクトの配列。
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Segment'
+      security:
+        - pendo_integration_key: []
+
+  /segment/upload:
+    post:
+      tags:
+        - Segment
+      operationId: createSegment
+      summary: セグメントの作成
+      description: |
+        ビジター ID のリストからセグメントを作成します。最大 1,000 万件の ID に対応しています。
+
+        セグメントレコードは即座に作成されますが、ビジターの追加は非同期で行われます。
+        `/segment/{segmentId}/status` でジョブの進行状況を確認してください。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - visitors
+              properties:
+                name:
+                  type: string
+                  description: 新しいセグメントの表示名。
+                visitors:
+                  type: array
+                  description: セグメントに含めるビジター ID のリスト。
+                  items:
+                    type: string
+            example:
+              name: "APIセグメント"
+              visitors:
+                - "visitor1"
+                - "visitor2"
+                - "visitor3"
+      responses:
+        '200':
+          description: セグメントが作成されました。新しいセグメントオブジェクトを返します。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Segment'
+      security:
+        - pendo_integration_key: []
+
+  /segment/{segmentId}:
+    get:
+      tags:
+        - Segment
+      operationId: getSegment
+      summary: セグメントの取得
+      description: セグメント ID で単一のセグメントを返します。
+      parameters:
+        - $ref: '#/components/parameters/segmentId'
+      responses:
+        '200':
+          description: セグメントオブジェクト。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Segment'
+      security:
+        - pendo_integration_key: []
     put:
       tags:
-      - Metadata
-      description: 'アカウントまたは訪問者のエージェントまたはカスタムメタデータのフィールドの値を設定します。カスタムフィールドに値を設定する場合、そのフィールドはデータマッピングで既に作成されている必要があります。'
+        - Segment
+      operationId: updateSegment
+      summary: セグメントの更新
+      description: |
+        API で作成したセグメントの名前またはビジターリストを更新します。
+        少なくとも 1 つのフィールドが必要です。指定した値は既存の値を**上書き**します。
+      parameters:
+        - $ref: '#/components/parameters/segmentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: セグメントの新しい表示名。
+                visitors:
+                  type: array
+                  description: 新しいビジターリスト（既存のリストを上書きします）。
+                  items:
+                    type: string
+            example:
+              name: "更新後のセグメント名"
+              visitors:
+                - "visitor1"
+                - "visitor2"
+      responses:
+        '200':
+          description: セグメントが更新されました。
+        '400':
+          description: 不正なリクエストです。
+        '403':
+          description: API で作成されたセグメントではないため変更できません。
+      security:
+        - pendo_integration_key: []
+    delete:
+      tags:
+        - Segment
+      operationId: deleteSegment
+      summary: セグメントの削除
+      description: API で作成したセグメントを完全に削除します。
+      parameters:
+        - $ref: '#/components/parameters/segmentId'
+      responses:
+        '200':
+          description: セグメントが削除されました。
+        '400':
+          description: 不正なリクエストです。
+        '403':
+          description: API で作成されたセグメントではないため削除できません。
+        '404':
+          description: セグメントが見つかりません。
+      security:
+        - pendo_integration_key: []
+
+  /segment/{segmentId}/status:
+    get:
+      tags:
+        - Segment
+      operationId: getSegmentStatus
+      summary: セグメント処理ステータスの取得
+      description: |
+        セグメントの現在の処理ステータスを返します。処理完了後 4 時間まで取得できます。
+      parameters:
+        - $ref: '#/components/parameters/segmentId'
+      responses:
+        '200':
+          description: セグメントステータスオブジェクト。
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: 処理状態（例：`pending`、`processing`、`done`）。
+                  totalVisitors:
+                    type: integer
+                    description: セグメント内のビジター総数。
+      security:
+        - pendo_integration_key: []
+
+  /segment/{segmentId}/visitors:
+    post:
+      tags:
+        - Segment
+      operationId: startSegmentVisitorExport
+      summary: セグメントビジターエクスポートの開始
+      description: |
+        セグメント内のビジターの非同期エクスポートを開始します。
+        ステータス確認と結果取得に使用する `jobId` が返されます。
+      parameters:
+        - $ref: '#/components/parameters/segmentId'
+      responses:
+        '200':
+          description: エクスポートジョブが開始されました。`jobId` が含まれます。
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobId:
+                    type: string
+                    description: エクスポートジョブの ID。
+      security:
+        - pendo_integration_key: []
+
+  /segment/{segmentId}/visitors/{jobId}/status:
+    get:
+      tags:
+        - Segment
+      operationId: getSegmentExportStatus
+      summary: セグメントエクスポートステータスの確認
+      description: |
+        セグメントビジターエクスポートジョブのステータスを返します。
+        `jobId` はエクスポート開始リクエストのレスポンスから取得できます。
+      parameters:
+        - $ref: '#/components/parameters/segmentId'
+        - name: jobId
+          in: path
+          required: true
+          description: エクスポート開始リクエストで返されたジョブ ID。
+          schema:
+            type: string
+      responses:
+        '200':
+          description: エクスポートジョブステータスオブジェクト。
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+      security:
+        - pendo_integration_key: []
+
+  /segment/{segmentId}/visitors/{jobId}/results/{contentType}:
+    get:
+      tags:
+        - Segment
+      operationId: getSegmentExportResults
+      summary: セグメントエクスポート結果の取得
+      description: |
+        完了したセグメントビジターエクスポートを CSV または JSON 形式でダウンロードします。
+        事前にステータスエンドポイントでジョブの完了を確認してください。
+      parameters:
+        - $ref: '#/components/parameters/segmentId'
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: contentType
+          in: path
+          required: true
+          description: 出力形式 — `csv` または `json`。
+          schema:
+            type: string
+            enum: [csv, json]
+      responses:
+        '200':
+          description: エクスポートファイルの内容。
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+      security:
+        - pendo_integration_key: []
+
+  /segment/{segmentId}/visitor/{visitorId}:
+    put:
+      tags:
+        - Segment
+      operationId: addVisitorToSegment
+      summary: セグメントへのビジター追加
+      description: API で作成したセグメントにビジターを 1 件追加します。
+      parameters:
+        - $ref: '#/components/parameters/segmentId'
+        - $ref: '#/components/parameters/visitorIdPath'
+      responses:
+        '200':
+          description: ビジターが追加されました。
+        '403':
+          description: API で作成されたセグメントではありません。
+        '404':
+          description: セグメントまたはビジターが見つかりません。
+      security:
+        - pendo_integration_key: []
+    delete:
+      tags:
+        - Segment
+      operationId: removeVisitorFromSegment
+      summary: セグメントからのビジター削除
+      description: API で作成したセグメントからビジターを 1 件削除します。
+      parameters:
+        - $ref: '#/components/parameters/segmentId'
+        - $ref: '#/components/parameters/visitorIdPath'
+      responses:
+        '200':
+          description: ビジターが削除されました。
+        '403':
+          description: API で作成されたセグメントではありません。
+        '404':
+          description: セグメントまたはビジターが見つかりません。
+      security:
+        - pendo_integration_key: []
+
+  /segment/{segmentId}/visitor:
+    patch:
+      tags:
+        - Segment
+      operationId: batchUpdateSegmentVisitors
+      summary: セグメントビジターの一括追加/削除
+      description: |
+        1 回のリクエストで複数のビジターを追加・削除します。
+
+        **制限:**
+        - 1 回のリクエストに含められる操作は最大 10 件。
+        - 1 つの操作に含められるビジター ID は最大 1,000 件。
+      parameters:
+        - $ref: '#/components/parameters/segmentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - patch
+              properties:
+                patch:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - op
+                      - path
+                      - value
+                    properties:
+                      op:
+                        type: string
+                        enum: [add, remove]
+                      path:
+                        type: string
+                        example: "/visitors"
+                      value:
+                        type: array
+                        items:
+                          type: string
+            example:
+              patch:
+                - op: add
+                  path: "/visitors"
+                  value: ["visitor3", "visitor4"]
+                - op: remove
+                  path: "/visitors"
+                  value: ["visitor1", "visitor2"]
+      responses:
+        '200':
+          description: パッチが適用されました。
+        '400':
+          description: パッチ形式が無効か、制限を超えています。
+      security:
+        - pendo_integration_key: []
+
+  # ── Report ────────────────────────────────────────────────────────────────────
+
+  /report:
+    get:
+      tags:
+        - Report
+      operationId: listReports
+      summary: 公開レポート一覧の取得
+      description: サブスクリプションのすべての公開レポートをオブジェクトの配列で返します。
+      responses:
+        '200':
+          description: レポートオブジェクトの配列。
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Report'
+      security:
+        - pendo_integration_key: []
+
+  /report/{reportId}/results.json:
+    get:
+      tags:
+        - Report
+      operationId: getReportResultsJson
+      summary: レポート結果の取得（JSON）
+      description: |
+        レポートの結果を JSON オブジェクトの配列で返します。
+
+        **注意:** パス・ファネル・リテンション・データエクスプローラーレポートは非対応です。
+      parameters:
+        - $ref: '#/components/parameters/reportId'
+      responses:
+        '200':
+          description: レポートデータの行オブジェクトの配列。
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+      security:
+        - pendo_integration_key: []
+
+  /report/{reportId}/results.csv:
+    get:
+      tags:
+        - Report
+      operationId: getReportResultsCsv
+      summary: レポート結果の取得（CSV）
+      description: |
+        レポートの結果を CSV ファイルで返します。
+
+        **注意:** パス・ファネル・リテンション・データエクスプローラーレポートは非対応です。
+      parameters:
+        - $ref: '#/components/parameters/reportId'
+      responses:
+        '200':
+          description: CSV ファイルの内容。
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+      security:
+        - pendo_integration_key: []
+
+  # ── Guide ─────────────────────────────────────────────────────────────────────
+
+  /guide:
+    get:
+      tags:
+        - Guide
+      operationId: listGuides
+      summary: ガイド一覧の取得
+      description: |
+        サブスクリプションのすべてのガイドを返します。マルチアプリサブスクリプションでは
+        `?expand=*` または `?appId=<id>` を使用できます。
+
+        特定のガイドのみ取得する場合は `id` クエリパラメーターにカンマ区切りでガイド ID を指定します。
+      parameters:
+        - name: id
+          in: query
+          required: false
+          description: 取得するガイドのカンマ区切り ID リスト。
+          schema:
+            type: string
+        - name: expand
+          in: query
+          required: false
+          schema:
+            type: string
+            example: "*"
+        - name: appId
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ガイドオブジェクトの配列。
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Guide'
+      security:
+        - pendo_integration_key: []
+
+  /guide/staged/reset:
+    post:
+      tags:
+        - Guide
+      operationId: resetAllStagedGuides
+      summary: すべてのステージングガイドのリセット
+      description: |
+        すべての**ステージング**ガイドをリセットします。以前にガイドを閲覧したすべてのビジターが
+        再度閲覧できるようになります。過去のデータ（アンケート回答を含む）はすべて削除されます。
+      responses:
+        '200':
+          description: すべてのステージングガイドがリセットされました。
+      security:
+        - pendo_integration_key: []
+
+  /guide/all/visitor/{visitorId}/reset:
+    post:
+      tags:
+        - Guide
+      operationId: resetAllGuidesForVisitor
+      summary: ビジターの全ガイド閲覧履歴のリセット
+      description: |
+        指定したビジターのすべてのガイドの閲覧記録を削除します。
+        そのビジターはすべてのガイドを即座に再閲覧できるようになります。
+      parameters:
+        - $ref: '#/components/parameters/visitorIdPath'
+      responses:
+        '200':
+          description: ビジターの全ガイド閲覧記録が削除されました。
+        '404':
+          description: ビジターが見つかりません。
+      security:
+        - pendo_integration_key: []
+
+  /guide/localization/export:
+    get:
+      tags:
+        - Guide
+      operationId: exportGuideLocalization
+      summary: ガイドローカライゼーションのエクスポート（XLIFF）
+      description: |
+        1 リクエストにつき最大 15 件のガイドの XLIFF 1.2 XML をエクスポートします。
+
+        **制限:**
+        - リソースセンターおよびクラシック（P1）ガイドは非対応。
+        - 無効なガイド ID が 1 件でも含まれるとリクエスト全体が失敗します。
+        - サブスクリプションの設定でローカライゼーションが有効になっている必要があります。
+      parameters:
+        - name: guideids
+          in: query
+          required: true
+          description: ガイド ID のカンマ区切りリスト（最大 15 件）。
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 指定ガイドのローカライゼーション文字列を含む XLIFF XML。
+          content:
+            application/xml:
+              schema:
+                type: string
+                format: binary
+      security:
+        - pendo_integration_key: []
+
+  /guide/localization/import:
+    post:
+      tags:
+        - Guide
+      operationId: importGuideLocalization
+      summary: ガイドローカライゼーションのインポート（XLIFF）
+      description: |
+        1 リクエストにつき最大 15 件の XLIFF 1.2 ファイルをインポートします。
+        インポートはファイルごとに独立して処理され、1 件失敗しても次のファイルが処理されます。
+
+        **制限:**
+        - ビジュアルデザインスタジオ（P2）ガイドのみ対応。
+        - サブスクリプションの設定でローカライゼーションが有効になっている必要があります。
+      requestBody:
+        required: true
+        content:
+          application/xml:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '200':
+          description: インポートが完了しました。
+      security:
+        - pendo_integration_key: []
+
+  /guide/{guideId}:
+    get:
+      tags:
+        - Guide
+      operationId: getGuide
+      summary: ガイドの取得
+      description: ガイド ID で単一のガイドを返します。
+      parameters:
+        - $ref: '#/components/parameters/guideId'
+      responses:
+        '200':
+          description: ガイドオブジェクト。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Guide'
+        '404':
+          description: ガイドが見つかりません。
+      security:
+        - pendo_integration_key: []
+
+  /guide/{guideId}/history:
+    get:
+      tags:
+        - Guide
+      operationId: getGuideHistory
+      summary: ガイド変更履歴の取得
+      description: |
+        ガイドのすべてのバージョンを新しい順で返します。
+        Pendo UI での変更は複数の独立した更新として記録される場合があります。
+      parameters:
+        - $ref: '#/components/parameters/guideId'
+      responses:
+        '200':
+          description: ガイドバージョンオブジェクトの配列（新しい順）。
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+      security:
+        - pendo_integration_key: []
+
+  /guide/{guideId}/reset:
+    post:
+      tags:
+        - Guide
+      operationId: resetStagedGuide
+      summary: ステージングガイドのリセット
+      description: |
+        単一の**ステージング**ガイドをリセットします。過去のデータ（アンケート回答を含む）は
+        すべて削除されます。
+      parameters:
+        - $ref: '#/components/parameters/guideId'
+      responses:
+        '200':
+          description: ガイドがリセットされました。
+        '404':
+          description: ガイドが見つかりません。
+      security:
+        - pendo_integration_key: []
+
+  /guide/{guideId}/visitor/{visitorId}/reset:
+    post:
+      tags:
+        - Guide
+      operationId: resetGuideForVisitor
+      summary: ビジターのガイド閲覧履歴のリセット
+      description: |
+        特定のガイドと特定のビジターの閲覧記録を削除します。
+        ガイドの状態に関わらず実行でき、そのビジターは即座にガイドを再閲覧できるようになります。
+      parameters:
+        - $ref: '#/components/parameters/guideId'
+        - $ref: '#/components/parameters/visitorIdPath'
+      responses:
+        '200':
+          description: ビジターのガイド閲覧記録が削除されました。
+        '404':
+          description: ガイドまたはビジターが見つかりません。
+      security:
+        - pendo_integration_key: []
+
+  /guide/{guideId}/experiment/export:
+    post:
+      tags:
+        - Guide
+      operationId: exportGuideExperimentResults
+      summary: ガイド実験結果のエクスポート
+      description: ガイドのすべての A/B テスト実験結果を CSV ファイルでエクスポートします。
+      parameters:
+        - $ref: '#/components/parameters/guideId'
+      responses:
+        '200':
+          description: 実験結果の CSV ファイル。
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: ガイドが見つかりません。
+      security:
+        - pendo_integration_key: []
+
+  # ── Metadata ──────────────────────────────────────────────────────────────────
+
+  /metadata/schema/{kind}:
+    get:
+      tags:
+        - Metadata
+      operationId: getMetadataSchema
+      summary: メタデータスキーマの取得
+      description: |
+        `visitor` または `account` のメタデータスキーマ全体を返します。
+
+        各フィールドのエントリには以下が含まれます:
+        - `Agent` — インストールスニペット経由で渡されるメタデータ。
+        - `Auto` — Pendo が自動生成するメタデータ。
+        - `Custom` — データマッピングで作成したユーザー定義フィールド。
+        - `Pendo` — `blacklistguides`、`donotprocess` などのシステムフィールド。
       parameters:
         - name: kind
           in: path
-          description:  "`visitor` もしくは `account`"
           required: true
+          description: '`visitor` または `account`'
           schema:
             type: string
+            enum: [visitor, account]
+      responses:
+        '200':
+          description: メタデータスキーマオブジェクト。
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/accountSchema'
+                  - $ref: '#/components/schemas/visitorSchema'
+        '404':
+          description: 無効な kind が指定されました。
+      security:
+        - pendo_integration_key: []
+
+  /metadata/schema/{kind}/{group}:
+    post:
+      tags:
+        - Metadata
+      operationId: createMetadataField
+      summary: メタデータフィールドの作成または復元
+      description: |
+        最大 24 件のエージェントまたはカスタムメタデータフィールドを作成または復元します。
+      parameters:
+        - name: kind
+          in: path
+          required: true
+          description: '`visitor` または `account`'
+          schema:
+            type: string
+            enum: [visitor, account]
         - name: group
           in: path
-          description: "メタデータフィールドの種類: `agent` もしくあ `custom`"
+          required: true
+          description: '`agent` または `custom`'
+          schema:
+            type: string
+            enum: [agent, custom]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                required:
+                  - name
+                  - displayname
+                  - type
+                properties:
+                  name:
+                    type: string
+                    description: 内部フィールド名（スペース不可）。
+                  displayname:
+                    type: string
+                    description: UI に表示される表示名。
+                  type:
+                    type: string
+                    enum: [string, number, boolean, time]
+            example:
+              - name: "plan_type"
+                displayname: "プランタイプ"
+                type: "string"
+              - name: "mrr"
+                displayname: "月間経常収益"
+                type: "number"
+      responses:
+        '200':
+          description: フィールドが作成または復元されました。
+        '400':
+          description: 無効なリクエストです。
+      security:
+        - pendo_integration_key: []
+
+  /metadata/schema/{kind}/{group}/{field}:
+    delete:
+      tags:
+        - Metadata
+      operationId: deleteMetadataField
+      summary: メタデータフィールドの削除
+      description: 既存のエージェントまたはカスタムメタデータフィールドを削除します。
+      parameters:
+        - name: kind
+          in: path
           required: true
           schema:
             type: string
-        - name: id
+            enum: [visitor, account]
+        - name: group
           in: path
-          description: "アップデート対象となっている`visitor` もしくは `account`のID"
+          required: true
+          schema:
+            type: string
+            enum: [agent, custom]
+        - name: field
+          in: path
+          required: true
+          description: フィールドの内部名（表示名ではありません）。
+          schema:
+            type: string
+      responses:
+        '200':
+          description: フィールドが削除されました。
+        '202':
+          description: フィールドはすでに削除済みです。
+        '404':
+          description: フィールドが見つかりません。
+      security:
+        - pendo_integration_key: []
+
+  /metadata/dependencies:
+    get:
+      tags:
+        - Metadata
+      operationId: listMetadataDependencies
+      summary: 全メタデータフィールドの依存関係一覧
+      description: すべてのメタデータフィールドが関連するオブジェクト（ガイド・レポート・セグメント）を返します。
+      responses:
+        '200':
+          description: フィールド識別子をキーとした依存関係マップ。
+          content:
+            application/json:
+              schema:
+                type: object
+      security:
+        - pendo_integration_key: []
+
+  /metadata/dependencies/{kind}/{group}/{fieldName}:
+    get:
+      tags:
+        - Metadata
+      operationId: getMetadataFieldDependencies
+      summary: メタデータフィールドの依存関係取得
+      description: 単一のメタデータフィールドが関連するオブジェクトを返します。
+      parameters:
+        - name: kind
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [visitor, account]
+        - name: group
+          in: path
           required: true
           schema:
             type: string
         - name: fieldName
           in: path
+          required: true
           schema:
             type: string
-          description: "更新されるメタデータフィールドの名前"
-          required: true
-          example: Payment_Status
+      responses:
+        '200':
+          description: 指定フィールドの依存関係オブジェクト。
+          content:
+            application/json:
+              schema:
+                type: object
+      security:
+        - pendo_integration_key: []
+
+  /metadata/{kind}/{group}/value/{id}/{fieldName}:
+    get:
+      tags:
+        - Metadata
+      operationId: getMetadataValue
+      summary: メタデータフィールド値の取得
+      description: ビジターまたはアカウントの単一メタデータフィールドの現在値を返します。
+      parameters:
+        - $ref: '#/components/parameters/metadataKind'
+        - $ref: '#/components/parameters/metadataGroup'
+        - $ref: '#/components/parameters/metadataId'
+        - $ref: '#/components/parameters/metadataFieldName'
+      responses:
+        '200':
+          description: 現在のフィールド値。
+          content:
+            application/json:
+              schema:
+                type: object
+        '404':
+          description: ビジター/アカウントまたはフィールドが見つかりません。
+      security:
+        - pendo_integration_key: []
+    put:
+      tags:
+        - Metadata
+      operationId: setMetadataValue
+      summary: メタデータフィールド値の設定
+      description: |
+        ビジターまたはアカウントの単一フィールドの値を設定します。
+        カスタムフィールドが存在しない場合は自動的に作成されます。
+      parameters:
+        - $ref: '#/components/parameters/metadataKind'
+        - $ref: '#/components/parameters/metadataGroup'
+        - $ref: '#/components/parameters/metadataId'
+        - $ref: '#/components/parameters/metadataFieldName'
       requestBody:
+        required: true
         content:
           application/json:
             schema:
-              type: object
-              example: Monthly_Pro
+              description: フィールドの新しい値。
+            example: "Monthly_Pro"
       responses:
         '200':
-          description: メタデータの値が更新されました
-        404:
-          description: Data Mappingsにカスタムファイルが存在することを確認します。
+          description: フィールド値が更新されました。
+        '404':
+          description: データマッピングにフィールドが見つかりません。
       security:
-      - pendo_integration_key: []
+        - pendo_integration_key: []
+
   /metadata/{kind}/{group}/value:
     post:
       tags:
-      - Metadata
+        - Metadata
+      operationId: bulkSetMetadataValues
+      summary: メタデータフィールド値の一括設定
       description: |
-       アカウントまたはビジターの複数のメタデータフィールドの値を一括更新できます。
-       
-       カスタムフィールドを設定する場合は、データマッピングですでにフィールドが作成されている必要があります。
-
-       更新のために提出するレコードの数は問いませんが、呼び出しは5分以内に制限されています。それ以上かかるコールは `408 Request Timeout` でタイムアウトします。
+        複数のビジターまたはアカウントのメタデータフィールドの値を一括で設定します。
+        リクエストには **5 分のタイムアウト** が設定されています。
       parameters:
-       - name: kind
-         in: path
-         description:  "`visitor` もしくは `account`"
-         schema:
-           type: string
-         required: true
-       - name: group
-         in: path
-         description: "メタデータフィールドの種類 `agent` もしくは`custom`"
-         schema:
-           type: string
-         required: true
+        - $ref: '#/components/parameters/metadataKind'
+        - $ref: '#/components/parameters/metadataGroup'
       requestBody:
-        description: 更新されるメタデータフィールドは配列でなければならない
+        required: true
         content:
           application/json:
             schema:
               type: array
-              example: [{"visitorId":"4","values":{"firstname":"Quam","lastname":"Quis"}},{"visitorId":"45","values":{"firstname":"Vel","lastname":"Quam"}},{"visitorId":"63","values":{"firstname":"Eros","lastname":"Nam"}}]
+              items:
+                type: object
+                properties:
+                  visitorId:
+                    type: string
+                  accountId:
+                    type: string
+                  values:
+                    type: object
+                    additionalProperties: true
+            example:
+              - visitorId: "visitor1"
+                values:
+                  plan_type: "Pro"
+                  mrr: 299
       responses:
         '200':
-          description: 一括更新完了
-        400:
-          description: JSON の形式が不正であるか、フィールドのマッピングが欠落しているため、受け入れられません。
-        408: 
-          description: リクエスト処理に時間がかかりすぎて、タイムアウトしました
+          description: 一括更新が完了しました。
+        '400':
+          description: JSON の形式が無効か、フィールドマッピングが不足しています。
+        '408':
+          description: リクエストがタイムアウトしました（5 分の制限を超えました）。
       security:
-      - pendo_integration_key: []
+        - pendo_integration_key: []
+
+  /metadata/{kind}/pendo/value/{id}/blacklistguides:
+    put:
+      tags:
+        - Metadata
+      operationId: setGuideBlacklist
+      summary: ビジター/アカウントのガイド表示オプトアウト
+      description: |
+        ビジターまたはアカウントへのガイド表示を無効にします。
+        `true` でオプトアウト、`false` でオプトインを再有効化します。
+      parameters:
+        - $ref: '#/components/parameters/metadataKind'
+        - $ref: '#/components/parameters/metadataId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: boolean
+            example: true
+      responses:
+        '200':
+          description: 設定が更新されました。
+        '400':
+          description: このサブスクリプションでは「ガイド除外リスト」設定が有効になっていません。
+      security:
+        - pendo_integration_key: []
+
+  /metadata/{kind}/pendo/value/{id}/donotprocess:
+    put:
+      tags:
+        - Metadata
+      operationId: setDoNotProcess
+      summary: ビジター/アカウントの全 Pendo 処理オプトアウト
+      description: |
+        ビジターまたはアカウントを **すべての Pendo アナリティクスおよびガイド配信** から
+        オプトアウトします。GDPR のオプトアウト権対応に使用します。
+        `true` でオプトアウト、`false` でオプトインを再有効化します。
+      parameters:
+        - $ref: '#/components/parameters/metadataKind'
+        - $ref: '#/components/parameters/metadataId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: boolean
+            example: true
+      responses:
+        '200':
+          description: 処理除外フラグが更新されました。
+      security:
+        - pendo_integration_key: []
+
+  # ── Exclude Lists & Servers ───────────────────────────────────────────────────
+
+  /blacklist:
+    get:
+      tags:
+        - ExcludeList
+      operationId: listExcludeListItems
+      summary: 除外リスト項目の一覧取得
+      description: サブスクリプションの除外リストに含まれるすべての項目を返します。
+      responses:
+        '200':
+          description: 除外リストエントリの配列。
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+      security:
+        - pendo_integration_key: []
+
+  /blacklist/type/{type}:
+    get:
+      tags:
+        - ExcludeList
+      operationId: listExcludeListByType
+      summary: タイプ別除外リスト項目の取得
+      description: |
+        指定したタイプの除外リストエントリをすべて返します。
+
+        | `type` の値 | 説明 |
+        |---|---|
+        | `serverGlob` | ワイルドカード（`*`）あり/なしのサーバー |
+        | `ip` | IP アドレス |
+        | `useragent` | ユーザーエージェント文字列 |
+        | `visitorId` | 特定のビジター ID |
+        | `cookieValue` | 特定の Cookie 値 |
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [serverGlob, ip, useragent, visitorId, cookieValue]
+      responses:
+        '200':
+          description: 指定タイプの除外リストエントリの配列。
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+      security:
+        - pendo_integration_key: []
+
+  /servername:
+    get:
+      tags:
+        - ExcludeList
+      operationId: listServerNames
+      summary: サーバー名一覧の取得
+      description: サブスクリプション開始以来 Pendo が記録したすべてのサーバー名を返します。
+      responses:
+        '200':
+          description: サーバー名オブジェクトの配列。
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+      security:
+        - pendo_integration_key: []
+
+  /servername/{name}:
+    get:
+      tags:
+        - ExcludeList
+      operationId: getServerName
+      summary: 名前でサーバーを取得
+      description: URLエンコードされたサーバー名で単一のサーバーレコードを返します。
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: URLエンコードされたサーバー名。
+          schema:
+            type: string
+      responses:
+        '200':
+          description: サーバー名オブジェクト。
+          content:
+            application/json:
+              schema:
+                type: object
+      security:
+        - pendo_integration_key: []
+
+  /servername/flag/{flagname}:
+    get:
+      tags:
+        - ExcludeList
+      operationId: getServersByFlag
+      summary: フラグでサーバーを取得
+      description: |
+        指定したフラグに一致するすべてのサーバーを返します。
+        `blacklisted` または `staging` を指定します。
+      parameters:
+        - name: flagname
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [blacklisted, staging]
+      responses:
+        '200':
+          description: 指定フラグに一致するサーバー名オブジェクトの配列。
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+      security:
+        - pendo_integration_key: []
+
+  # ── Data Sync ─────────────────────────────────────────────────────────────────
+
+  /datasync/storageTypes/gcs/destinations/Default/credentials:
+    put:
+      tags:
+        - DataSync
+      operationId: rotateGcsCredentials
+      summary: GCS Data Sync 認証情報のローテーション
+      description: Pendo UI で設定済みの GCS Data Sync 宛先の認証情報をローテーションします。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - serviceAccount
+                - secretKey
+              properties:
+                serviceAccount:
+                  type: string
+                  example: "service-account@project.iam.gserviceaccount.com"
+                secretKey:
+                  type: string
+      responses:
+        '200':
+          description: 認証情報のローテーションが完了しました。
+        '400':
+          description: 認証情報の形式が無効です。
+        '404':
+          description: GCS 宛先が設定されていません。
+      security:
+        - pendo_integration_key: []
+
+  /datasync/storageTypes/s3/destinations/Default/credentials:
+    put:
+      tags:
+        - DataSync
+      operationId: rotateS3Credentials
+      summary: S3 Data Sync 認証情報のローテーション
+      description: Pendo UI で設定済みの Amazon S3 Data Sync 宛先の認証情報をローテーションします。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - accessKeyId
+                - secretAccessKey
+              properties:
+                accessKeyId:
+                  type: string
+                  example: "AKIAIOSFODNN7EXAMPLE"
+                secretAccessKey:
+                  type: string
+      responses:
+        '200':
+          description: 認証情報のローテーションが完了しました。
+        '400':
+          description: 認証情報の形式が無効です。
+        '404':
+          description: S3 宛先が設定されていません。
+      security:
+        - pendo_integration_key: []
+
+  /datasync/storageTypes/azure/destinations/Default/credentials:
+    put:
+      tags:
+        - DataSync
+      operationId: rotateAzureCredentials
+      summary: Azure Data Sync 認証情報のローテーション
+      description: Pendo UI で設定済みの Microsoft Azure Data Sync 宛先の認証情報をローテーションします。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - clientId
+                - clientSecret
+              properties:
+                clientId:
+                  type: string
+                  example: "0b501e7e-feed-da1e-iced-c0ffee000000"
+                clientSecret:
+                  type: string
+      responses:
+        '200':
+          description: 認証情報のローテーションが完了しました。
+        '400':
+          description: 認証情報の形式が無効です。
+        '404':
+          description: Azure 宛先が設定されていません。
+      security:
+        - pendo_integration_key: []
+
+  # ── Feedback (Listen) ─────────────────────────────────────────────────────────
+
+  /feedback/options:
+    get:
+      tags:
+        - Feedback
+      operationId: getFeedbackOptions
+      summary: フィードバック送信オプションの取得
+      description: フィードバック送信に必要なオプションの一覧を返します。
+      responses:
+        '200':
+          description: フィードバックオプションオブジェクト。
+          content:
+            application/json:
+              schema:
+                type: object
+      security:
+        - pendo_integration_key: []
+
+  /feedback:
+    post:
+      tags:
+        - Feedback
+      operationId: createFeedback
+      summary: フィードバックの作成
+      description: 新しい Listen フィードバックアイテムを作成します。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackInput'
+            example:
+              accountId: "exampleAccount"
+              visitorId: "exampleVisitor"
+              title: "ダークモードのリクエスト"
+              description: "ダッシュボードにダークモードを追加してほしいです。"
+              appIds: [-323232]
+              importance: 2
+      responses:
+        '200':
+          description: フィードバックアイテムが作成されました。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Feedback'
+        '400':
+          description: 必須フィールドが不足または無効です。
+      security:
+        - pendo_integration_key: []
+    delete:
+      tags:
+        - Feedback
+      operationId: deleteFeedback
+      summary: フィードバックの削除
+      description: ID を指定して最大 10 件のフィードバックアイテムを削除します。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ids
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+                  maxItems: 10
+            example:
+              ids:
+                - "SGPf_7N4v-DLn8o2lh5f0_TMOZY"
+      responses:
+        '200':
+          description: フィードバックアイテムが削除されました。
+        '400':
+          description: 10 件を超える ID が指定されたか、ID の形式が無効です。
+      security:
+        - pendo_integration_key: []
+
+  /feedback/{id}:
+    patch:
+      tags:
+        - Feedback
+      operationId: updateFeedback
+      summary: フィードバックの更新
+      description: 既存のフィードバックアイテムを更新します。指定したフィールドのみ変更されます。
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 更新するフィードバックアイテムの ID。
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackInput'
+            example:
+              title: "更新後のタイトル"
+              importance: 3
+      responses:
+        '200':
+          description: フィードバックアイテムが更新されました。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Feedback'
+        '400':
+          description: フィールド値が無効です。
+        '404':
+          description: フィードバックアイテムが見つかりません。
+      security:
+        - pendo_integration_key: []
+
+  # ── Aggregation ───────────────────────────────────────────────────────────────
+
+  /aggregation:
+    post:
+      tags:
+        - Aggregation
+      operationId: runAggregation
+      summary: Aggregation クエリの実行
+      description: |
+        任意の Pendo データソースに対してパイプラインベースの Aggregation クエリを実行します。
+        Pendo UI のすべてのグラフ・レポートはこのエンドポイントで動作しています。
+
+        ## パイプラインステージ
+        | ステージ | 説明 |
+        |---|---|
+        | `source` | データソースと時間ウィンドウを定義 |
+        | `filter` | MongoDB スタイルのフィルター条件 |
+        | `identified` | 特定フィールドでグループ化 |
+        | `reduce` | `sum`・`count`・`max` などで集計 |
+        | `select` | 出力フィールドの選択/リネーム |
+        | `sort` | 結果の並び替え |
+        | `limit` | 返却行数の上限 |
+        | `spawn` | 複数サブパイプラインを並行実行してマージ |
+        | `join` | 別ソースのフィールドで結果を補完 |
+        | `bulkExpand` | メタデータフィールドをインラインで展開 |
+
+        ## データソース
+        **メタデータ/オブジェクト:** `visitors`、`accounts`、`pages`、`features`、
+        `trackTypes`、`guides`、`groups`、`surveyItems`、`npsPredictions`
+
+        **イベント:** `events`、`pageEvents`、`featureEvents`、`trackEvents`、
+        `guideEvents`、`guidesSeen`、`pollEvents`、`pollsSeen`、`surveyResponses`、
+        `emailEvents`
+
+        **Listen:** `vocItems`、`votes`
+
+        ## timeSeries パラメーター
+        - `first`: 日付文字列または `now()`
+        - `count`: 期間の数（負の値 = 過去を参照）
+        - `period`: `"hour"`・`"day"`・`"dayRange"`・`"week"`・`"month"`・`"year"`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - request
+              properties:
+                request:
+                  type: object
+                  required:
+                    - pipeline
+                  properties:
+                    name:
+                      type: string
+                    requestId:
+                      type: string
+                    pipeline:
+                      type: array
+                      items:
+                        type: object
+                response:
+                  type: object
+                  properties:
+                    mimeType:
+                      type: string
+                      enum: [application/json, text/csv]
+                      default: application/json
+            examples:
+              pageEventsByVisitor:
+                summary: ビジター別ページイベント数（直近 30 日）
+                value:
+                  request:
+                    name: page-events-by-visitor
+                    pipeline:
+                      - source:
+                          pageEvents: null
+                          timeSeries:
+                            first: "now()"
+                            count: -30
+                            period: dayRange
+                      - identified: visitorId
+                      - reduce:
+                          - count: 1
+                  response:
+                    mimeType: application/json
+      responses:
+        '200':
+          description: クエリ結果。
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+        '400':
+          description: パイプライン構文が無効か、不明なソースが指定されました。
+      security:
+        - pendo_integration_key: []
+
+  /data/track:
+    post:
+      tags:
+        - Track
+      operationId: sendTrackEvent
+      summary: トラックイベントの送信
+      description: |
+        ビジターのカスタムアクション（トラックイベント）を記録します。
+
+        **ベース URL:** `https://data.pendo.io`（`app.pendo.io` ではありません）。
+
+        **認証:** `x-pendo-integration-key` ヘッダーに **トラックイベント共有シークレット** を指定します。
+      servers:
+        - url: https://data.pendo.io
+          description: Pendo トラック・Conversations インジェストエンドポイント
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrackEvent'
+            example:
+              type: "track"
+              event: "登録完了"
+              visitorId: "visitor-unique-id"
+              accountId: "account-id"
+              timestamp: 1680373680000
+              properties:
+                plan: "Pro"
+      responses:
+        '200':
+          description: イベントが受け付けられました。
+        '400':
+          description: ペイロードが無効です。
+      security:
+        - pendo_track_secret: []
+
+  /data/agentic:
+    post:
+      tags:
+        - Conversations
+      operationId: sendConversationEvent
+      summary: Conversation イベントの送信
+      description: |
+        AI エージェントのインタラクション（プロンプト・レスポンスなど）を記録します。
+
+        **ベース URL:** `https://data.pendo.io`（`app.pendo.io` ではありません）。
+
+        **認証:** `x-pendo-integration-key` ヘッダーに **トラックイベント共有シークレット** を指定します。
+      servers:
+        - url: https://data.pendo.io
+          description: Pendo トラック・Conversations インジェストエンドポイント
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConversationEvent'
+            example:
+              type: "prompt"
+              visitor_id: "exampleVisitor"
+              account_id: "exampleAccount"
+              timestamp: 1769802954000
+              props:
+                agentId: "0MjY3pcq1FFxH3a5KBGKUoPvEIk"
+                conversationId: "conv_1765734044978_6erskba"
+                messageId: "message_from_api1"
+                content: "ダッシュボードから利用データをエクスポートするにはどうすればいいですか？"
+                suggestedPrompt: false
+                agentInputTokenCount: 512
+                agentOutputTokenCount: 128
+      responses:
+        '200':
+          description: Conversation イベントが受け付けられました。
+        '400':
+          description: ペイロードが無効です。
+      security:
+        - pendo_track_secret: []
 
 components:
+  parameters:
+    segmentId:
+      name: segmentId
+      in: path
+      required: true
+      description: セグメントの ID。
+      schema:
+        type: string
+
+    visitorIdPath:
+      name: visitorId
+      in: path
+      required: true
+      description: URLエンコードされたビジター ID。
+      schema:
+        type: string
+
+    guideId:
+      name: guideId
+      in: path
+      required: true
+      description: ガイドの ID。
+      schema:
+        type: string
+
+    reportId:
+      name: reportId
+      in: path
+      required: true
+      description: レポートの ID。
+      schema:
+        type: string
+
+    metadataKind:
+      name: kind
+      in: path
+      required: true
+      description: '`visitor` または `account`'
+      schema:
+        type: string
+        enum: [visitor, account]
+
+    metadataGroup:
+      name: group
+      in: path
+      required: true
+      description: '`agent` または `custom`'
+      schema:
+        type: string
+        enum: [agent, custom]
+
+    metadataId:
+      name: id
+      in: path
+      required: true
+      description: 更新するビジターまたはアカウントの ID。
+      schema:
+        type: string
+
+    metadataFieldName:
+      name: fieldName
+      in: path
+      required: true
+      description: メタデータフィールドの内部名。
+      schema:
+        type: string
+
   schemas:
+
     Visitor:
       type: object
-      description: ビジターオブジェクトのスキーマ
+      description: ビジターオブジェクト。
       properties:
-        id: 
-          description: ビジターを識別するための固有ID
+        id:
           type: string
+          description: ビジターの一意の ID。
           example: "4203948023423"
         email:
-          description: visitor email
           type: string
-          example: "shinya.hashimoto@zero1.jp"
+          example: "user@example.com"
         accountIds:
           type: array
-          example: ["shin nihon prowrestling","zero One"]
+          items:
+            type: string
         metadata:
           type: object
           properties:
             agent:
               type: object
+              description: インストールスニペット経由で渡されたメタデータ。
               properties:
                 email:
                   type: string
-                  example: shinya.hashimoto@zero1.jp
-                ipaddress: 
+                ipaddress:
                   type: string
-                  example: "192.168.10.1"
                 language:
                   type: string
-                  example: "ja"
             auto:
               type: object
+              description: Pendo が自動生成したメタデータ。
               properties:
-                accountid:
-                  type: string
-                accountids:
-                  type: array
-                  example: ["zero one"]
                 firstvisit:
                   type: integer
+                  format: int64
                   example: 1506351511034
-                id:
-                  type: integer
-                  example: 4203948023423
-                idhash:
+                lastbrowsername:
                   type: string
-                lastbrowsername: 
-                  type: string
-                  example: Chrome
-                lastbrowserversion: 
-                  type: string
-                  example: 99.0.013
-                lastoperatingsystem:
-                  type: string
-                  example: Mac OS X
-                lastservername:
-                  type: string
-                  example: zeroone.jp
+                  example: "Chrome"
                 lastupdated:
                   type: integer
-                lastuseragent: 
-                  type: string
-                  example: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36"
+                  format: int64
                 lastvisit:
                   type: integer
-                  example: 1506976690112
-                nid:
-                  type: string
-                  example: 42
-            visitorId:
-              type: string
-              example: 9080i
-              description: ビジターに最後に関連付けられたアカウントID      
+                  format: int64
+
     Account:
       type: object
+      description: アカウントオブジェクト。
       properties:
         id:
           type: string
-          example: "zeta and sons"
+          example: "acme-corp"
         metadata:
           type: object
           properties:
@@ -271,198 +2110,402 @@ components:
               properties:
                 firstvisit:
                   type: integer
-                  example: 1506349414089
-                id: 
-                  type: string
-                  example: "Zeta and Sons"
-                idhash:
-                  type: integer
-                  example: 1129480058
+                  format: int64
                 lastupdated:
                   type: integer
-                  example: 1506349414757
-                lastvisited:
+                  format: int64
+                lastvisit:
                   type: integer
-                  example: 1506349414089
+                  format: int64
+
+    Page:
+      type: object
+      description: タグ付けされたページ定義。
+      properties:
+        id:
+          type: string
+        appId:
+          type: string
+        name:
+          type: string
+        rules:
+          type: array
+          items:
+            type: object
+        createdAt:
+          type: integer
+          format: int64
+        lastUpdatedAt:
+          type: integer
+          format: int64
+
+    Feature:
+      type: object
+      description: タグ付けされたフィーチャー定義。
+      properties:
+        id:
+          type: string
+        appId:
+          type: string
+        name:
+          type: string
+        elementPathRules:
+          type: array
+          items:
+            type: object
+        pageId:
+          type: string
+        createdAt:
+          type: integer
+          format: int64
+        lastUpdatedAt:
+          type: integer
+          format: int64
+
+    TrackType:
+      type: object
+      description: トラックイベントタイプ定義。
+      properties:
+        id:
+          type: string
+        appId:
+          type: string
+        name:
+          type: string
+        createdAt:
+          type: integer
+          format: int64
+        lastUpdatedAt:
+          type: integer
+          format: int64
+
+    Guide:
+      type: object
+      description: ガイドオブジェクト。
+      properties:
+        id:
+          type: string
+        appId:
+          type: string
+        name:
+          type: string
+        state:
+          type: string
+          enum: [staged, published, disabled, draft]
+        steps:
+          type: array
+          items:
+            type: object
+        createdAt:
+          type: integer
+          format: int64
+        lastUpdatedAt:
+          type: integer
+          format: int64
+
+    Segment:
+      type: object
+      description: ビジターセグメント定義。
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        definition:
+          type: object
+        createdAt:
+          type: integer
+          format: int64
+        lastUpdatedAt:
+          type: integer
+          format: int64
+
+    Report:
+      type: object
+      description: 公開レポート定義。
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        kind:
+          type: string
+        createdAt:
+          type: integer
+          format: int64
+        lastUpdatedAt:
+          type: integer
+          format: int64
+
+    BulkDeletionRequest:
+      type: object
+      description: 一括削除ジョブのステータスレコード。
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [pending, processing, completed, failed]
+        type:
+          type: string
+          enum: [visitor, account]
+        requestedAt:
+          type: integer
+          format: int64
+        completedAt:
+          type: integer
+          format: int64
+        totalRequested:
+          type: integer
+        totalDeleted:
+          type: integer
+
+    TrackEvent:
+      type: object
+      description: カスタムトラックイベントのペイロード。
+      required:
+        - type
+        - event
+        - visitorId
+      properties:
+        type:
+          type: string
+          enum: [track]
+        event:
+          type: string
+          example: "登録完了"
+        visitorId:
+          type: string
+        accountId:
+          type: string
+        timestamp:
+          type: integer
+          format: int64
+        properties:
+          type: object
+          additionalProperties: true
+        context:
+          type: object
+          properties:
+            ip:
+              type: string
+            userAgent:
+              type: string
+            url:
+              type: string
+            title:
+              type: string
+
+    ConversationEvent:
+      type: object
+      description: Conversations API 用のイベントペイロード。
+      required:
+        - type
+        - visitor_id
+        - timestamp
+        - props
+      properties:
+        type:
+          type: string
+          enum: [prompt, response]
+        visitor_id:
+          type: string
+        account_id:
+          type: string
+        timestamp:
+          type: integer
+          format: int64
+        props:
+          type: object
+          properties:
+            agentId:
+              type: string
+            conversationId:
+              type: string
+            messageId:
+              type: string
+            content:
+              type: string
+            suggestedPrompt:
+              type: boolean
+            toolsUsed:
+              type: array
+              items:
+                type: string
+            agentModelUsed:
+              type: array
+              items:
+                type: string
+            agentInputTokenCount:
+              type: integer
+            agentOutputTokenCount:
+              type: integer
+        context:
+          type: object
+          properties:
+            ip:
+              type: string
+            userAgent:
+              type: string
+            url:
+              type: string
+
+    FeedbackInput:
+      type: object
+      description: フィードバックアイテムの作成/更新ペイロード。
+      properties:
+        accountId:
+          type: string
+        visitorId:
+          type: string
+        createdById:
+          type: string
+        createdAt:
+          type: integer
+          format: int64
+        title:
+          type: string
+          description: '**作成時は必須。**'
+        description:
+          type: string
+        appIds:
+          type: array
+          description: '**作成時は必須。**'
+          items:
+            type: integer
+        labels:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              category:
+                type: string
+        importance:
+          type: integer
+          description: '重要度レベル（1〜5）。**作成時は必須。**'
+          minimum: 1
+          maximum: 5
+        productAreas:
+          type: array
+          items:
+            type: string
+
+    Feedback:
+      type: object
+      description: API が返すフィードバックアイテム。
+      properties:
+        id:
+          type: string
+        accountId:
+          type: string
+        visitorId:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        importance:
+          type: integer
+        labels:
+          type: array
+          items:
+            type: object
+        createdAt:
+          type: integer
+          format: int64
+        updatedAt:
+          type: integer
+          format: int64
+
     accountSchema:
       type: object
+      description: アカウントのメタデータスキーマ。
       properties:
         agent:
           type: object
-          properties:
-            name:
-              type: object
-              properties:
-                Type:
-                  type: string
-                DisplayName:
-                  type: string
-                ElementType:
-                  type: string
-                Dirty:
-                  type: boolean
-                  example: false
-                sample:
-                  type: string
-                  example: org1234567
-                isHidden: 
-                  type: boolean
-                  example: false
-                isDeleted: 
-                  type: boolean
-                  example: false
-                isCalculated:
-                  type: boolean
-                  example: false
-                isPerapp:
-                  type: boolean
-                  example: false
-                neverIndex:
-                  type: boolean
-                  example: false
+          additionalProperties:
+            $ref: '#/components/schemas/MetadataFieldSchema'
         auto:
-          properties:
-            firstvisit:
-              type: object
-              properties:
-                Type:
-                  type: string
-                  example: time
-                DisplayName:
-                  type: string
-                  example: First Visit
-                ElementType:
-                  type: string
-                ElementFormat:
-                  type: string
-                  example: milliseconds
-                Dirty:
-                  type: boolean
-                  example: false
-                isHidden: 
-                  type: boolean
-                  example: false
-                isDeleted: 
-                  type: boolean
-                  example: false
-                isCalculated:
-                  type: boolean
-                  example: false
-                isPerapp:
-                  type: boolean
-                  example: false
-                neverIndex:
-                  type: boolean
-                  example: false
-        id:
-           properties:
-                Type:
-                  type: string
-                  example: string
-                DisplayName:
-                  type: string
-                  example: Account ID
-                ElementType:
-                  type: string
-                Dirty:
-                  type: boolean
-                  example: false                  
-                isHidden: 
-                  type: boolean
-                  example: false
-                isDeleted: 
-                  type: boolean
-                  example: false
-                isCalculated:
-                  type: boolean
-                  example: false
-                isPerapp:
-                  type: boolean
-                  example: false
-                neverIndex:
-                  type: boolean
-                  example: false
-        lastvisit:
-          properties:
-            firstvisit:
-              type: object
-              properties:
-                Type:
-                  type: string
-                  example: time
-                DisplayName:
-                  type: string
-                  example: Last Visit
-                ElementType:
-                  type: string
-                ElementFormat:
-                  type: string
-                  example: milliseconds
-                Dirty:
-                  type: boolean
-                  example: false
-                isHidden: 
-                  type: boolean
-                  example: false
-                isDeleted: 
-                  type: boolean
-                  example: false
-                isCalculated:
-                  type: boolean
-                  example: false
-                isPerapp:
-                  type: boolean
-                  example: false
-                neverIndex:
-                  type: boolean
-                  example: false
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/MetadataFieldSchema'
         pendo:
-          properties:
-            donotprocess:
-              type: object
-              properties:
-                Type:
-                  type: string
-                  example: boolean
-                DisplayName:
-                  type: string
-                  example: Do Not Process
-                ElementType:
-                  type: string
-                ElementFormat:
-                  type: string
-                Dirty:
-                  type: boolean
-                  example: false
-                isHidden: 
-                  type: boolean
-                  example: false
-                isDeleted: 
-                  type: boolean
-                  example: false
-                isCalculated:
-                  type: boolean
-                  example: false
-                isPerapp:
-                  type: boolean
-                  example: false
-                neverIndex:
-                  type: boolean
-                  example: false
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/MetadataFieldSchema'
+        custom:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/MetadataFieldSchema'
+
     visitorSchema:
       type: object
+      description: ビジターのメタデータスキーマ。
       properties:
         agent:
-         properties:
-           full_name:
-             type: object
-             properties:
-               Type:
-                 type: string
-                 example: string
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/MetadataFieldSchema'
+        auto:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/MetadataFieldSchema'
+        pendo:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/MetadataFieldSchema'
+        custom:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/MetadataFieldSchema'
+
+    MetadataFieldSchema:
+      type: object
+      description: 単一のメタデータフィールドのスキーマ定義。
+      properties:
+        Type:
+          type: string
+          example: "string"
+        DisplayName:
+          type: string
+          example: "プランタイプ"
+        ElementType:
+          type: string
+        ElementFormat:
+          type: string
+        Dirty:
+          type: boolean
+          example: false
+        isHidden:
+          type: boolean
+          example: false
+        isDeleted:
+          type: boolean
+          example: false
+        isCalculated:
+          type: boolean
+          example: false
+        isPerapp:
+          type: boolean
+          example: false
+        neverIndex:
+          type: boolean
+          example: false
 
   securitySchemes:
     pendo_integration_key:
       type: apiKey
       in: header
       name: x-pendo-integration-key
+      description: |
+        Pendo インテグレーションキー。**サブスクリプション設定 → インテグレーション** で確認できます。
+        `app.pendo.io` のすべての API エンドポイントで使用します。
+    pendo_track_secret:
+      type: apiKey
+      in: header
+      name: x-pendo-integration-key
+      description: |
+        Pendo トラックイベント共有シークレット。インテグレーションキーとは**異なるキー**です。
+        `data.pendo.io` のトラックおよび Conversations エンドポイントのみで使用します。
