@@ -1,476 +1,2844 @@
 openapi: 3.0.1
 info:
-  title: Pendo Rest API
-  description: 'The v1 API allows developers to request and modify resources like Guides, Visitor Metadata, and Reports and to make Aggregation queries using a MongoDB-like query language. All of the charts, graphs, and reports displayed in the main Pendo application are generated using similar queries.'
-  version: 0.0.1
+  title: Pendo REST API
+  description: |
+    The Pendo API allows developers to request and modify resources like Guides, Pages, Features,
+    Visitor/Account Metadata, Segments, Reports, and more. It also supports Aggregation queries
+    using a MongoDB-like pipeline language — the same engine powering all charts and graphs in the
+    Pendo UI.
+
+    ## Authentication
+    Most endpoints use your **Integration Key** in the `x-pendo-integration-key` request header.
+
+    The **Track** and **Conversations** endpoints (`data.pendo.io`) use a separate
+    **Track Event Shared Secret** in the same header.
+
+    ## Base URLs
+    | Endpoint group | Base URL |
+    |---|---|
+    | REST API | `https://app.pendo.io/api/v1` |
+    | Track / Conversations | `https://data.pendo.io/data` |
+
+    ## Visitor & Account ID encoding
+    Path parameters that accept a visitor or account ID also accept a URL-safe base64-encoded
+    variant prefixed with `b64_` — e.g. `b64_dmlzaXRvcklk`. Use this form when the raw ID
+    contains characters that are unsafe in a URL path segment.
+  version: 1.0.0
 externalDocs:
-  description: Find out more about Pendo API
+  description: Pendo Developer Documentation
   url: https://developers.pendo.io/docs/?bash#v1-api
 servers:
-- url:  https://app.pendo.io/api/v1
-tags:
-- name: Account
-  description: The account endpoint allows you to retrieve a single account’s specific details by supplying an account ID as part of your request. The {accountId} referenced below can be found on the accounts list page or at the end of the url when viewing an account details page.
-- name: Metadata
-  description: The metadata endpoint allows to you retrieve and update Account/Visitor Metadata values. Metadata is used to gather insights about the users behavior in your app.
-- name: Visitor
-  description: The visitor endpoint allows you to retrieve visitor specific details by supplying a visitor ID as part of your request. The {visitorId} referenced below can be found on the visitors list page or at the end of the url when viewing a visitor details page.
-paths:
-  /visitor/{visitorId}:
-   get:
-     tags:
-     - Visitor
-     operationId: getVisitor
-     summary: Get Visitor Object
-     parameters:
-       - name: visitorId
-         in: path
-         description: URL encoded visitor id or b64_XXXX, where XXXX is a URL-safe base64 encoded visitor Id
-         required: true
-         schema:
-           type: string
-           format: byte
-     responses:
-       200:
-         description: Response is sent in body
-         content:
-           application/json:
-             schema:
-               $ref: '#/components/schemas/Visitor'
-       400:
-         description: Error while getting visitor no such entity found
-     security:
-      - pendo_integration_key: []
-  /account/{accountId}:
-   get:
-      tags:
-      - Account
-      summary: Get Account Object
-      operationId: getAccount
-      parameters:
-      - name: accountId
-        in: path
-        description: ID of Account to return. URL encoded account id or b64_XXXX, where XXXX is a URL-safe base64 encoded account Id
-        required: true
-        schema:
-          type: string
-          format: byte
-      responses:
-          200:
-            description: Response is sent as body
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/Account'
-      security:
-      - pendo_integration_key: []
+  - url: https://app.pendo.io/api/v1
+    description: Pendo REST API
 
+tags:
+  - name: Admin
+    description: Verify integration key validity.
+  - name: Account
+    description: Retrieve account objects by ID.
+  - name: Visitor
+    description: Retrieve visitor objects and activity history by ID.
+  - name: Page
+    description: Retrieve tagged page definitions.
+  - name: Feature
+    description: Retrieve tagged feature definitions.
+  - name: Track
+    description: |
+      Send custom track events and retrieve track type definitions.
+      Track events are sent to `https://data.pendo.io/data/track` using your
+      **Track Event Shared Secret** (not your Integration Key).
+  - name: BulkDeletion
+    description: Submit and monitor GDPR/CCPA bulk deletion requests for visitors and accounts.
+  - name: Segment
+    description: Create, update, delete, and export visitor segments.
+  - name: Report
+    description: List public reports and retrieve their results as JSON or CSV.
+  - name: Guide
+    description: |
+      List guides, retrieve change history, reset seen records, and manage localization (XLIFF).
+  - name: Metadata
+    description: |
+      Read and write agent/custom metadata fields on visitors and accounts.
+      Also manage the metadata schema (create, delete fields) and retrieve field dependencies.
+  - name: ExcludeList
+    description: Retrieve items on the subscription's exclude list and known server names.
+  - name: DataSync
+    description: Rotate credentials for GCS, S3, and Azure Data Sync destinations.
+  - name: Feedback
+    description: Create, update, and delete Listen (NPS/feedback) items.
+  - name: Conversations
+    description: |
+      Capture AI agent interactions via the Conversations API.
+      Events are sent to `https://data.pendo.io/data/agentic` using your
+      **Track Event Shared Secret**.
+  - name: Aggregation
+    description: |
+      Run MongoDB-style pipeline queries across all Pendo data sources.
+      Every chart and report in the Pendo UI is powered by this endpoint.
+
+paths:
+
+  # ── Admin ────────────────────────────────────────────────────────────────────
+
+  /token/verify:
+    get:
+      tags:
+        - Admin
+      operationId: verifyIntegrationKey
+      summary: Verify Integration Key
+      description: |
+        Check whether an integration key is valid and whether it has write access.
+        No request body is needed — the key in `x-pendo-integration-key` is evaluated.
+      responses:
+        '200':
+          description: Key is valid. Response body contains permission details.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  write:
+                    type: boolean
+                    description: Whether the key has write access.
+        '403':
+          description: Key is invalid.
+      security:
+        - pendo_integration_key: []
+
+  # ── Visitor ──────────────────────────────────────────────────────────────────
+
+  /visitor/{visitorId}:
+    get:
+      tags:
+        - Visitor
+      operationId: getVisitor
+      summary: Get Visitor
+      description: |
+        Returns a visitor object. The `visitorId` can be a plain URL-encoded ID or a
+        URL-safe base64-encoded ID prefixed with `b64_` (e.g. `b64_dmlzaXRvcklk`).
+      parameters:
+        - name: visitorId
+          in: path
+          required: true
+          description: URL-encoded visitor ID, or `b64_<base64>` encoded visitor ID.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Visitor object.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Visitor'
+        '400':
+          description: Visitor not found.
+      security:
+        - pendo_integration_key: []
+
+  /visitor/{visitorId}/history:
+    get:
+      tags:
+        - Visitor
+      operationId: getVisitorHistory
+      summary: Get Visitor History
+      description: |
+        Returns a summary of visitor activity for a 24-hour time period beginning at `starttime`.
+        For per-event counts use the Aggregation endpoint instead.
+      parameters:
+        - name: visitorId
+          in: path
+          required: true
+          description: URL-encoded visitor ID, or `b64_<base64>` encoded visitor ID.
+          schema:
+            type: string
+        - name: starttime
+          in: query
+          required: true
+          description: Start of the 24-hour window as a Unix timestamp in milliseconds.
+          schema:
+            type: integer
+            format: int64
+            example: 1506351511034
+      responses:
+        '200':
+          description: Visitor activity summary for the requested period.
+          content:
+            application/json:
+              schema:
+                type: object
+      security:
+        - pendo_integration_key: []
+
+  # ── Account ───────────────────────────────────────────────────────────────────
+
+  /account/{accountId}:
+    get:
+      tags:
+        - Account
+      operationId: getAccount
+      summary: Get Account
+      description: |
+        Returns an account object. The `accountId` can be a plain URL-encoded ID or a
+        URL-safe base64-encoded ID prefixed with `b64_` (e.g. `b64_YWNjb3VudElk`).
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          description: URL-encoded account ID, or `b64_<base64>` encoded account ID.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Account object.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+      security:
+        - pendo_integration_key: []
+
+  # ── Page ─────────────────────────────────────────────────────────────────────
+
+  /page:
+    get:
+      tags:
+        - Page
+      operationId: listPages
+      summary: List Pages
+      description: |
+        Returns all tagged pages for the subscription. For multi-app subscriptions use
+        `?expand=*` to return pages across all applications, or `?appId=<id>` to filter
+        to a single application.
+      parameters:
+        - name: id
+          in: query
+          required: false
+          description: |
+            Comma-separated list of page IDs. When provided, only the specified pages are
+            returned instead of the full list.
+          schema:
+            type: string
+            example: "pageId1,pageId2"
+        - name: expand
+          in: query
+          required: false
+          description: Pass `*` to return pages from all applications (multi-app subscriptions).
+          schema:
+            type: string
+            example: "*"
+        - name: appId
+          in: query
+          required: false
+          description: Filter results to a single application by app ID.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Array of page objects.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Page'
+      security:
+        - pendo_integration_key: []
+
+  # ── Feature ───────────────────────────────────────────────────────────────────
+
+  /feature:
+    get:
+      tags:
+        - Feature
+      operationId: listFeatures
+      summary: List Features
+      description: |
+        Returns all tagged features for the subscription. For multi-app subscriptions use
+        `?expand=*` to return features across all applications, or `?appId=<id>` to filter
+        to a single application.
+      parameters:
+        - name: id
+          in: query
+          required: false
+          description: |
+            Comma-separated list of feature IDs. When provided, only the specified features
+            are returned.
+          schema:
+            type: string
+            example: "featureId1,featureId2"
+        - name: expand
+          in: query
+          required: false
+          description: Pass `*` to return features from all applications (multi-app subscriptions).
+          schema:
+            type: string
+            example: "*"
+        - name: appId
+          in: query
+          required: false
+          description: Filter results to a single application by app ID.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Array of feature objects.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Feature'
+      security:
+        - pendo_integration_key: []
+
+  # ── Track ─────────────────────────────────────────────────────────────────────
+
+  /tracktype:
+    get:
+      tags:
+        - Track
+      operationId: listTrackTypes
+      summary: List Track Types
+      description: |
+        Returns all track event type definitions for the subscription. For multi-app
+        subscriptions use `?expand=*` or `?appId=<id>`.
+      parameters:
+        - name: id
+          in: query
+          required: false
+          description: Comma-separated list of track type IDs to filter the response.
+          schema:
+            type: string
+        - name: expand
+          in: query
+          required: false
+          schema:
+            type: string
+            example: "*"
+        - name: appId
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Array of track type objects.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TrackType'
+      security:
+        - pendo_integration_key: []
+
+  # ── Bulk Deletion (GDPR / CCPA) ──────────────────────────────────────────────
+
+  /bulkdelete:
+    get:
+      tags:
+        - BulkDeletion
+      operationId: listBulkDeletions
+      summary: List Outstanding Bulk Deletion Requests
+      description: Returns all bulk deletion requests that have not yet completed.
+      responses:
+        '200':
+          description: Array of bulk deletion request objects.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BulkDeletionRequest'
+      security:
+        - pendo_integration_key: []
+
+  /bulkdelete/{id}:
+    get:
+      tags:
+        - BulkDeletion
+      operationId: getBulkDeletion
+      summary: Get Bulk Deletion Status
+      description: |
+        Returns the status of a specific bulk deletion request. Records are preserved
+        indefinitely — completed deletions can still be retrieved by ID.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the bulk deletion request.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Bulk deletion request object.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkDeletionRequest'
+      security:
+        - pendo_integration_key: []
+
+  /bulkdelete/visitor:
+    post:
+      tags:
+        - BulkDeletion
+      operationId: bulkDeleteVisitors
+      summary: Bulk Delete Visitors
+      description: |
+        Permanently deletes all data for the specified visitors. Used to comply with
+        GDPR/CCPA right-to-erasure requests.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - visitors
+              properties:
+                visitors:
+                  type: array
+                  description: List of visitor IDs to delete.
+                  items:
+                    type: string
+            example:
+              visitors:
+                - "visitorId1"
+                - "visitorId2"
+      responses:
+        '200':
+          description: Deletion request accepted. Returns the new request object.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkDeletionRequest'
+        '400':
+          description: No IDs provided in the request body.
+      security:
+        - pendo_integration_key: []
+
+  /bulkdelete/account:
+    post:
+      tags:
+        - BulkDeletion
+      operationId: bulkDeleteAccounts
+      summary: Bulk Delete Accounts
+      description: |
+        Permanently deletes all data for the specified accounts. Used to comply with
+        GDPR/CCPA right-to-erasure requests.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - accounts
+              properties:
+                accounts:
+                  type: array
+                  description: List of account IDs to delete.
+                  items:
+                    type: string
+            example:
+              accounts:
+                - "accountId1"
+                - "accountId2"
+      responses:
+        '200':
+          description: Deletion request accepted. Returns the new request object.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkDeletionRequest'
+        '400':
+          description: No IDs provided in the request body.
+      security:
+        - pendo_integration_key: []
+
+  # ── Segment ───────────────────────────────────────────────────────────────────
+
+  /segment:
+    get:
+      tags:
+        - Segment
+      operationId: listSegments
+      summary: List Segments
+      description: Returns all shared ("Everyone") segments for the subscription.
+      responses:
+        '200':
+          description: Array of segment objects.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Segment'
+      security:
+        - pendo_integration_key: []
+
+  /segment/upload:
+    post:
+      tags:
+        - Segment
+      operationId: createSegment
+      summary: Create Segment
+      description: |
+        Create a segment from an explicit list of visitor IDs. Supports up to 10 million IDs.
+
+        The segment record is created immediately; visitors are added asynchronously.
+        Poll `/segment/{segmentId}/status` to track progress.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - visitors
+              properties:
+                name:
+                  type: string
+                  description: Display name for the new segment.
+                  example: "My API Segment"
+                visitors:
+                  type: array
+                  description: List of visitor IDs to include in the segment.
+                  items:
+                    type: string
+            example:
+              name: "My API Segment"
+              visitors:
+                - "visitor1"
+                - "visitor2"
+                - "visitor3"
+      responses:
+        '200':
+          description: Segment created. Returns the new segment object.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Segment'
+      security:
+        - pendo_integration_key: []
+
+  /segment/{segmentId}:
+    get:
+      tags:
+        - Segment
+      operationId: getSegment
+      summary: Get Segment
+      description: Returns a single segment by its ID.
+      parameters:
+        - $ref: '#/components/parameters/segmentId'
+      responses:
+        '200':
+          description: Segment object.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Segment'
+      security:
+        - pendo_integration_key: []
+    put:
+      tags:
+        - Segment
+      operationId: updateSegment
+      summary: Update Segment
+      description: |
+        Update the name or visitor list for an existing API-created segment.
+        At least one field is required. Any value provided **overwrites** the previous value.
+      parameters:
+        - $ref: '#/components/parameters/segmentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: New display name for the segment.
+                visitors:
+                  type: array
+                  description: Replacement visitor list (overwrites existing list).
+                  items:
+                    type: string
+            example:
+              name: "Updated Segment Name"
+              visitors:
+                - "visitor1"
+                - "visitor2"
+      responses:
+        '200':
+          description: Segment updated.
+        '400':
+          description: Bad request.
+        '403':
+          description: Segment was not created via the API and cannot be modified.
+      security:
+        - pendo_integration_key: []
+    delete:
+      tags:
+        - Segment
+      operationId: deleteSegment
+      summary: Delete Segment
+      description: Permanently deletes an existing API-created segment.
+      parameters:
+        - $ref: '#/components/parameters/segmentId'
+      responses:
+        '200':
+          description: Segment deleted.
+        '400':
+          description: Bad request.
+        '403':
+          description: Segment was not created via the API and cannot be deleted.
+        '404':
+          description: Segment not found.
+      security:
+        - pendo_integration_key: []
+
+  /segment/{segmentId}/status:
+    get:
+      tags:
+        - Segment
+      operationId: getSegmentStatus
+      summary: Get Segment Processing Status
+      description: |
+        Returns the current processing status of a segment. Status is available for up to
+        4 hours after processing completes.
+      parameters:
+        - $ref: '#/components/parameters/segmentId'
+      responses:
+        '200':
+          description: Segment status object.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: Processing state (e.g. `pending`, `processing`, `done`).
+                  totalVisitors:
+                    type: integer
+                    description: Total number of visitors in the segment.
+      security:
+        - pendo_integration_key: []
+
+  /segment/{segmentId}/visitors:
+    post:
+      tags:
+        - Segment
+      operationId: startSegmentVisitorExport
+      summary: Start Segment Visitor Export
+      description: |
+        Initiates an asynchronous export of the visitors in a segment. Returns a `jobId`
+        to use with the status and results endpoints.
+      parameters:
+        - $ref: '#/components/parameters/segmentId'
+      responses:
+        '200':
+          description: Export job started. Contains `jobId` to poll for status.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobId:
+                    type: string
+                    description: ID of the export job.
+      security:
+        - pendo_integration_key: []
+
+  /segment/{segmentId}/visitors/{jobId}/status:
+    get:
+      tags:
+        - Segment
+      operationId: getSegmentExportStatus
+      summary: Get Segment Export Status
+      description: |
+        Returns the status of an in-progress or completed segment visitor export job.
+        The `jobId` is returned by the "Start Segment Visitor Export" call.
+      parameters:
+        - $ref: '#/components/parameters/segmentId'
+        - name: jobId
+          in: path
+          required: true
+          description: Job ID returned by the start export request.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Export job status object.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: Current job state (e.g. `pending`, `done`).
+      security:
+        - pendo_integration_key: []
+
+  /segment/{segmentId}/visitors/{jobId}/results/{contentType}:
+    get:
+      tags:
+        - Segment
+      operationId: getSegmentExportResults
+      summary: Retrieve Segment Export Results
+      description: |
+        Download the completed segment visitor export in CSV or JSON format.
+        Poll the status endpoint first to confirm the job is done.
+      parameters:
+        - $ref: '#/components/parameters/segmentId'
+        - name: jobId
+          in: path
+          required: true
+          description: Job ID returned by the start export request.
+          schema:
+            type: string
+        - name: contentType
+          in: path
+          required: true
+          description: Output format — `csv` or `json`.
+          schema:
+            type: string
+            enum: [csv, json]
+      responses:
+        '200':
+          description: Export file contents.
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+      security:
+        - pendo_integration_key: []
+
+  /segment/{segmentId}/visitor/{visitorId}:
+    put:
+      tags:
+        - Segment
+      operationId: addVisitorToSegment
+      summary: Add Visitor to Segment
+      description: Adds a single visitor to an API-created segment.
+      parameters:
+        - $ref: '#/components/parameters/segmentId'
+        - $ref: '#/components/parameters/visitorIdPath'
+      responses:
+        '200':
+          description: Visitor added.
+        '403':
+          description: Segment was not created via the API.
+        '404':
+          description: Segment or visitor not found.
+      security:
+        - pendo_integration_key: []
+    delete:
+      tags:
+        - Segment
+      operationId: removeVisitorFromSegment
+      summary: Remove Visitor from Segment
+      description: Removes a single visitor from an API-created segment.
+      parameters:
+        - $ref: '#/components/parameters/segmentId'
+        - $ref: '#/components/parameters/visitorIdPath'
+      responses:
+        '200':
+          description: Visitor removed.
+        '403':
+          description: Segment was not created via the API.
+        '404':
+          description: Segment or visitor not found.
+      security:
+        - pendo_integration_key: []
+
+  /segment/{segmentId}/visitor:
+    patch:
+      tags:
+        - Segment
+      operationId: batchUpdateSegmentVisitors
+      summary: Batch Add/Remove Segment Visitors
+      description: |
+        Add or remove a small batch of visitors in a single request.
+
+        **Limits:**
+        - Maximum 10 patch operations per call.
+        - Maximum 1,000 visitors per operation.
+
+        Each operation follows the JSON Patch format with `op` (`add` or `remove`),
+        `path` (`/visitors`), and `value` (array of visitor IDs).
+      parameters:
+        - $ref: '#/components/parameters/segmentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - patch
+              properties:
+                patch:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - op
+                      - path
+                      - value
+                    properties:
+                      op:
+                        type: string
+                        enum: [add, remove]
+                        description: The operation to perform.
+                      path:
+                        type: string
+                        description: JSON Pointer path — always `/visitors`.
+                        example: "/visitors"
+                      value:
+                        type: array
+                        description: Visitor IDs to add or remove.
+                        items:
+                          type: string
+            example:
+              patch:
+                - op: add
+                  path: "/visitors"
+                  value: ["visitor3", "visitor4"]
+                - op: remove
+                  path: "/visitors"
+                  value: ["visitor1", "visitor2"]
+      responses:
+        '200':
+          description: Patch applied.
+        '400':
+          description: Invalid patch format or limits exceeded.
+      security:
+        - pendo_integration_key: []
+
+  # ── Report ────────────────────────────────────────────────────────────────────
+
+  /report:
+    get:
+      tags:
+        - Report
+      operationId: listReports
+      summary: List Public Reports
+      description: Returns all public reports for the subscription as an array of objects.
+      responses:
+        '200':
+          description: Array of report objects.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Report'
+      security:
+        - pendo_integration_key: []
+
+  /report/{reportId}/results.json:
+    get:
+      tags:
+        - Report
+      operationId: getReportResultsJson
+      summary: Get Report Results (JSON)
+      description: |
+        Returns report results as an array of JSON objects.
+
+        **Note:** Paths, Funnels, Retention, and Data Explorer reports are not supported.
+      parameters:
+        - $ref: '#/components/parameters/reportId'
+      responses:
+        '200':
+          description: Array of row objects representing the report data.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+      security:
+        - pendo_integration_key: []
+
+  /report/{reportId}/results.csv:
+    get:
+      tags:
+        - Report
+      operationId: getReportResultsCsv
+      summary: Get Report Results (CSV)
+      description: |
+        Returns report results as a CSV file.
+
+        **Note:** Paths, Funnels, Retention, and Data Explorer reports are not supported.
+      parameters:
+        - $ref: '#/components/parameters/reportId'
+      responses:
+        '200':
+          description: CSV file contents.
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+      security:
+        - pendo_integration_key: []
+
+  # ── Guide ─────────────────────────────────────────────────────────────────────
+
+  /guide:
+    get:
+      tags:
+        - Guide
+      operationId: listGuides
+      summary: List Guides
+      description: |
+        Returns all guides for the subscription. For multi-app subscriptions use
+        `?expand=*` or `?appId=<id>`.
+
+        To return one or more specific guides, pass comma-separated guide IDs in the `id`
+        query parameter.
+      parameters:
+        - name: id
+          in: query
+          required: false
+          description: Comma-separated guide IDs to retrieve specific guides.
+          schema:
+            type: string
+            example: "guideId1,guideId2"
+        - name: expand
+          in: query
+          required: false
+          description: Pass `*` to return guides from all applications.
+          schema:
+            type: string
+            example: "*"
+        - name: appId
+          in: query
+          required: false
+          description: Filter to a single application by app ID.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Array of guide objects.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Guide'
+      security:
+        - pendo_integration_key: []
+
+  /guide/staged/reset:
+    post:
+      tags:
+        - Guide
+      operationId: resetAllStagedGuides
+      summary: Reset All Staged Guides
+      description: |
+        Resets all **staged** guides. Every visitor that previously saw any of these guides
+        will be eligible to see them again as if they were newly created.
+
+        All prior guide data (including poll responses) will be deleted, though this may
+        take time to be reflected in the UI.
+      responses:
+        '200':
+          description: All staged guides reset.
+      security:
+        - pendo_integration_key: []
+
+  /guide/all/visitor/{visitorId}/reset:
+    post:
+      tags:
+        - Guide
+      operationId: resetAllGuidesForVisitor
+      summary: Reset All Guides Seen by Visitor
+      description: |
+        Removes all guide-seen records for the specified visitor across every guide.
+        The visitor will be eligible to see all guides again immediately.
+      parameters:
+        - $ref: '#/components/parameters/visitorIdPath'
+      responses:
+        '200':
+          description: All guide-seen records cleared for the visitor.
+        '404':
+          description: Visitor not found.
+      security:
+        - pendo_integration_key: []
+
+  /guide/localization/export:
+    get:
+      tags:
+        - Guide
+      operationId: exportGuideLocalization
+      summary: Export Guide Localization (XLIFF)
+      description: |
+        Exports XLIFF 1.2 XML for up to 15 guides per request. The response contains XML
+        with each guide's XLIFF wrapped in a `<file>` element.
+
+        **Constraints:**
+        - Resource Center and Classic (P1) guides are not supported.
+        - Any invalid guide ID causes the entire request to fail.
+        - The subscription must have localization enabled in Settings.
+      parameters:
+        - name: guideids
+          in: query
+          required: true
+          description: Comma-separated list of guide IDs (max 15).
+          schema:
+            type: string
+            example: "guideid1,guideid2,guideid3"
+      responses:
+        '200':
+          description: XLIFF XML containing localization strings for the requested guides.
+          content:
+            application/xml:
+              schema:
+                type: string
+                format: binary
+      security:
+        - pendo_integration_key: []
+
+  /guide/localization/import:
+    post:
+      tags:
+        - Guide
+      operationId: importGuideLocalization
+      summary: Import Guide Localization (XLIFF)
+      description: |
+        Imports up to 15 XLIFF 1.2 files per request. Each file represents one
+        guide ID / target-language combination delimited by `<file>` elements.
+        Import processes each file independently and continues on failure.
+
+        **Constraints:**
+        - XLIFF files must be fully formed with all `<target>` elements populated.
+        - Only Visual Design Studio (P2) guides are supported.
+        - The subscription must have localization enabled in Settings.
+      requestBody:
+        required: true
+        content:
+          application/xml:
+            schema:
+              type: string
+              format: binary
+              description: XLIFF 1.2 XML document.
+      responses:
+        '200':
+          description: Import completed. Individual file results are in the response body.
+      security:
+        - pendo_integration_key: []
+
+  /guide/{guideId}:
+    get:
+      tags:
+        - Guide
+      operationId: getGuide
+      summary: Get Guide
+      description: Returns a single guide by its ID.
+      parameters:
+        - $ref: '#/components/parameters/guideId'
+      responses:
+        '200':
+          description: Guide object.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Guide'
+        '404':
+          description: Guide not found.
+      security:
+        - pendo_integration_key: []
+
+  /guide/{guideId}/history:
+    get:
+      tags:
+        - Guide
+      operationId: getGuideHistory
+      summary: Get Guide Change History
+      description: |
+        Returns all versions of a guide from newest to oldest. Changes made through the
+        Pendo UI may produce multiple independent version entries.
+      parameters:
+        - $ref: '#/components/parameters/guideId'
+      responses:
+        '200':
+          description: Array of guide version objects ordered newest-first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+      security:
+        - pendo_integration_key: []
+
+  /guide/{guideId}/reset:
+    post:
+      tags:
+        - Guide
+      operationId: resetStagedGuide
+      summary: Reset Individual Staged Guide
+      description: |
+        Resets a single **staged** guide. All visitors who previously saw this guide will
+        be eligible to see it again. All prior data (including poll responses) is deleted,
+        though the UI may take time to reflect this.
+      parameters:
+        - $ref: '#/components/parameters/guideId'
+      responses:
+        '200':
+          description: Guide reset.
+        '404':
+          description: Guide not found.
+      security:
+        - pendo_integration_key: []
+
+  /guide/{guideId}/visitor/{visitorId}/reset:
+    post:
+      tags:
+        - Guide
+      operationId: resetGuideForVisitor
+      summary: Reset Guide Seen for Visitor
+      description: |
+        Removes the guide-seen record for a specific guide/visitor combination.
+        The visitor can be in any state and will see the guide again immediately.
+        The change may take time to appear in the UI.
+      parameters:
+        - $ref: '#/components/parameters/guideId'
+        - $ref: '#/components/parameters/visitorIdPath'
+      responses:
+        '200':
+          description: Guide-seen record cleared for the visitor.
+        '404':
+          description: Guide or visitor not found.
+      security:
+        - pendo_integration_key: []
+
+  /guide/{guideId}/experiment/export:
+    post:
+      tags:
+        - Guide
+      operationId: exportGuideExperimentResults
+      summary: Export Guide Experiment Results
+      description: Exports all A/B experiment results for a guide as a CSV file.
+      parameters:
+        - $ref: '#/components/parameters/guideId'
+      responses:
+        '200':
+          description: CSV file with experiment results.
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Guide not found.
+      security:
+        - pendo_integration_key: []
+
+  # ── Metadata ──────────────────────────────────────────────────────────────────
 
   /metadata/schema/{kind}:
     get:
       tags:
-      - Metadata
+        - Metadata
       operationId: getMetadataSchema
-      description: 'Gets the metadata schema for a single kind of metadata (visitor or account).'
+      summary: Get Metadata Schema
+      description: |
+        Returns the full metadata schema for `visitor` or `account`.
+
+        Each field entry includes:
+        - `Agent` — passed via the installation snippet.
+        - `Auto` — automatically generated by Pendo.
+        - `Custom` — user-defined fields created in Data Mappings.
+        - `Pendo` — system fields such as `blacklistguides` and `donotprocess`.
       parameters:
-      - name: kind
-        in: path
-        description: 'Specify the kind of metadata Account or Visitor'
-        required: true
-        schema:
-          type: string
+        - name: kind
+          in: path
+          required: true
+          description: '`visitor` or `account`'
+          schema:
+            type: string
+            enum: [visitor, account]
       responses:
-        200:
-          description: |
-            Returns a collection of metadata objects. 
-
-            `Agent`: Metadata type passed through the installation snippet.
-
-            `Auto`: Automatically generated by Pendo.
-
-            `Custom`: Custom Pendo only fields to help analyze aspects of your data
-
-            `Pendo`: Metadata representing the current blacklistguides setting for the visitor.
+        '200':
+          description: Metadata schema object.
           content:
             application/json:
               schema:
                 oneOf:
                   - $ref: '#/components/schemas/accountSchema'
                   - $ref: '#/components/schemas/visitorSchema'
+        '404':
+          description: Invalid kind supplied.
       security:
         - pendo_integration_key: []
-        
 
-  /metadata/{kind}/{group}/value/{id}/{fieldName}:
-    put:
+  /metadata/schema/{kind}/{group}:
+    post:
       tags:
-      - Metadata
-      operationId: updateMetadata
-      description: 'Sets the value of an agent or custom metadata field on an account or visitor. If setting value for a custom field, the field must already have been created in the Data Mappings.'
+        - Metadata
+      operationId: createMetadataField
+      summary: Create or Undelete Metadata Fields
+      description: |
+        Creates or undeletes up to 24 agent or custom metadata fields.
+
+        When undeleting, any data that existed before deletion is restored within a few
+        hours. Values received while the field was deleted, or values removed by a data
+        scrub, are **not** restored.
       parameters:
         - name: kind
           in: path
-          description:  "`visitor` or `account`"
           required: true
+          description: '`visitor` or `account`'
           schema:
             type: string
+            enum: [visitor, account]
         - name: group
           in: path
-          description: "type of metadata field: `agent` or `custom`"
           required: true
+          description: '`agent` or `custom`'
           schema:
             type: string
-        - name: id
-          in: path
-          description: "id of the `visitor` or `account` being updated"
-          required: true
-          schema:
-            type: string
-        - name: fieldName
-          in: path
-          schema:
-            type: string
-          description: name of the metadata field being updated
-          required: true
-          example: Payment_Status
+            enum: [agent, custom]
       requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              example: Monthly_Pro
-      responses:
-        '200':
-          description: The metadata value was updated
-        404:
-          description: Check to make sure the custom filed exists in Data Mappings.
-      security:
-      - pendo_integration_key: []
-  /metadata/{kind}/{group}/value:
-    post:
-      tags:
-      - Metadata
-      operationId: createMetadata
-      description: |
-       Sets the value of multiple metadata fields on set of accounts or visitors. AKA: bulk update
-       
-       If setting custom fields, the fields must already have been created in the Data Mappings.
-
-       Any number of records may be submitted for update, but the call is limited to five `(5) minutes`. Any calls that takes longer will timeout with a `408 Request Timeout`.
-      parameters:
-       - name: kind
-         in: path
-         description:  "`visitor` or `account`"
-         schema:
-           type: string
-         required: true
-       - name: group
-         in: path
-         description: "type of metadata filed: `agent` or `custom`"
-         schema:
-           type: string
-         required: true
-      requestBody:
-        description: Metadata fileds must be in an array
+        required: true
         content:
           application/json:
             schema:
               type: array
-              example: [{"visitorId":"4","values":{"firstname":"Quam","lastname":"Quis"}},{"visitorId":"45","values":{"firstname":"Vel","lastname":"Quam"}},{"visitorId":"63","values":{"firstname":"Eros","lastname":"Nam"}}]
+              items:
+                type: object
+                required:
+                  - name
+                  - displayname
+                  - type
+                properties:
+                  name:
+                    type: string
+                    description: Internal field name (no spaces).
+                  displayname:
+                    type: string
+                    description: Human-readable display name.
+                  type:
+                    type: string
+                    description: Data type — `string`, `number`, `boolean`, or `time`.
+                    enum: [string, number, boolean, time]
+            example:
+              - name: "plan_type"
+                displayname: "Plan Type"
+                type: "string"
+              - name: "mrr"
+                displayname: "Monthly Recurring Revenue"
+                type: "number"
+              - name: "trial_end_date"
+                displayname: "Trial End Date"
+                type: "time"
       responses:
         '200':
-          description: The bulk update completed
-        400:
-          description: The format is unacceptable due to malformed JSON or missing field mappings
-        408: 
-          description: The call took too long and timed out
+          description: Fields created or undeleted.
+        '400':
+          description: Invalid request — check field names and types.
       security:
-      - pendo_integration_key: []
+        - pendo_integration_key: []
+
+  /metadata/schema/{kind}/{group}/{field}:
+    delete:
+      tags:
+        - Metadata
+      operationId: deleteMetadataField
+      summary: Delete Metadata Field
+      description: |
+        Deletes an existing agent or custom metadata field. The field can be undeleted
+        later via the create endpoint.
+      parameters:
+        - name: kind
+          in: path
+          required: true
+          description: '`visitor` or `account`'
+          schema:
+            type: string
+            enum: [visitor, account]
+        - name: group
+          in: path
+          required: true
+          description: '`agent` or `custom`'
+          schema:
+            type: string
+            enum: [agent, custom]
+        - name: field
+          in: path
+          required: true
+          description: Internal field name (not the display name).
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Field deleted.
+        '202':
+          description: Field was already deleted.
+        '404':
+          description: Field not found.
+      security:
+        - pendo_integration_key: []
+
+  /metadata/dependencies:
+    get:
+      tags:
+        - Metadata
+      operationId: listMetadataDependencies
+      summary: List All Metadata Field Dependencies
+      description: |
+        Returns the objects that every metadata field is tied to, including:
+        - Guides and reports using a draft/custom segment that references the field.
+        - Shared segments and reports that reference the field.
+        - Whether the field is used in a private ("Only Me") report or segment.
+      responses:
+        '200':
+          description: Dependency map keyed by field identifier.
+          content:
+            application/json:
+              schema:
+                type: object
+      security:
+        - pendo_integration_key: []
+
+  /metadata/dependencies/{kind}/{group}/{fieldName}:
+    get:
+      tags:
+        - Metadata
+      operationId: getMetadataFieldDependencies
+      summary: Get Metadata Field Dependencies
+      description: |
+        Returns the objects tied to a single metadata field, including guides, reports,
+        and segments that reference it.
+      parameters:
+        - name: kind
+          in: path
+          required: true
+          description: '`visitor` or `account`'
+          schema:
+            type: string
+            enum: [visitor, account]
+        - name: group
+          in: path
+          required: true
+          description: '`agent`, `custom`, `auto`, or `pendo`'
+          schema:
+            type: string
+        - name: fieldName
+          in: path
+          required: true
+          description: Internal name of the metadata field.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Dependency object for the requested field.
+          content:
+            application/json:
+              schema:
+                type: object
+      security:
+        - pendo_integration_key: []
+
+  /metadata/{kind}/{group}/value/{id}/{fieldName}:
+    get:
+      tags:
+        - Metadata
+      operationId: getMetadataValue
+      summary: Get Metadata Field Value
+      description: Returns the current value of a single metadata field for a visitor or account.
+      parameters:
+        - $ref: '#/components/parameters/metadataKind'
+        - $ref: '#/components/parameters/metadataGroup'
+        - $ref: '#/components/parameters/metadataId'
+        - $ref: '#/components/parameters/metadataFieldName'
+      responses:
+        '200':
+          description: Current field value.
+          content:
+            application/json:
+              schema:
+                type: object
+        '404':
+          description: Visitor/account or field not found.
+      security:
+        - pendo_integration_key: []
+    put:
+      tags:
+        - Metadata
+      operationId: setMetadataValue
+      summary: Set Metadata Field Value
+      description: |
+        Sets the value of a single agent or custom metadata field on a visitor or account.
+
+        When setting a custom field, if the field name does not exist it will be created
+        automatically. Go to Data Mappings to set the data type for auto-created fields.
+      parameters:
+        - $ref: '#/components/parameters/metadataKind'
+        - $ref: '#/components/parameters/metadataGroup'
+        - $ref: '#/components/parameters/metadataId'
+        - $ref: '#/components/parameters/metadataFieldName'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              description: The new value for the field. Type depends on the field's data type.
+            example: "Monthly_Pro"
+      responses:
+        '200':
+          description: Field value updated.
+        '404':
+          description: Field not found in Data Mappings.
+      security:
+        - pendo_integration_key: []
+
+  /metadata/{kind}/{group}/value:
+    post:
+      tags:
+        - Metadata
+      operationId: bulkSetMetadataValues
+      summary: Bulk Set Metadata Field Values
+      description: |
+        Sets metadata field values for multiple visitors or accounts in a single call.
+        Custom fields are auto-created if they do not yet exist.
+
+        Any number of records may be included, but the call has a **5-minute timeout**.
+        Calls exceeding this limit return `408 Request Timeout`.
+      parameters:
+        - $ref: '#/components/parameters/metadataKind'
+        - $ref: '#/components/parameters/metadataGroup'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                properties:
+                  visitorId:
+                    type: string
+                    description: Visitor ID (when `kind` is `visitor`).
+                  accountId:
+                    type: string
+                    description: Account ID (when `kind` is `account`).
+                  values:
+                    type: object
+                    description: Map of field name to new value.
+                    additionalProperties: true
+            example:
+              - visitorId: "visitor1"
+                values:
+                  plan_type: "Pro"
+                  mrr: 299
+              - visitorId: "visitor2"
+                values:
+                  plan_type: "Enterprise"
+                  mrr: 999
+      responses:
+        '200':
+          description: Bulk update completed.
+        '400':
+          description: Malformed JSON or missing field mappings.
+        '408':
+          description: Request timed out (5-minute limit exceeded).
+      security:
+        - pendo_integration_key: []
+
+  /metadata/{kind}/pendo/value/{id}/blacklistguides:
+    put:
+      tags:
+        - Metadata
+      operationId: setGuideBlacklist
+      summary: Opt Out Visitor/Account from Guide Display
+      description: |
+        Prevents a visitor or account from receiving any guides.
+
+        **Prerequisite:** The "Enable guide exclude list per visitor and account" setting
+        must be enabled — contact Pendo Support to activate it.
+
+        Set to `true` to opt out, `false` to opt back in.
+      parameters:
+        - $ref: '#/components/parameters/metadataKind'
+        - $ref: '#/components/parameters/metadataId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: boolean
+            example: true
+      responses:
+        '200':
+          description: Setting updated.
+        '400':
+          description: The "guide exclude list" setting is not enabled for this subscription.
+      security:
+        - pendo_integration_key: []
+
+  /metadata/{kind}/pendo/value/{id}/donotprocess:
+    put:
+      tags:
+        - Metadata
+      operationId: setDoNotProcess
+      summary: Opt Out Visitor/Account from All Pendo Processing
+      description: |
+        Opts a visitor or account out of **all Pendo analytics and guide delivery**.
+        Typically used to fulfil GDPR right-to-opt-out requests.
+
+        Set to `true` to opt out, `false` to opt back in.
+
+        Once flagged, the visitor's or account's data will not be processed going forward.
+        Existing data is retained unless a separate bulk delete request is submitted.
+      parameters:
+        - $ref: '#/components/parameters/metadataKind'
+        - $ref: '#/components/parameters/metadataId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: boolean
+            example: true
+      responses:
+        '200':
+          description: Do-not-process flag updated.
+      security:
+        - pendo_integration_key: []
+
+  # ── Exclude Lists & Servers ───────────────────────────────────────────────────
+
+  /blacklist:
+    get:
+      tags:
+        - ExcludeList
+      operationId: listExcludeListItems
+      summary: List All Exclude List Items
+      description: |
+        Returns all items on the subscription's exclude list.
+
+        **Note:** If the Server Host/Domain list has been converted to an Include List,
+        servers returned here will have their events **included** in analytics; all other
+        servers will be excluded.
+      responses:
+        '200':
+          description: Array of exclude list entries.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+      security:
+        - pendo_integration_key: []
+
+  /blacklist/type/{type}:
+    get:
+      tags:
+        - ExcludeList
+      operationId: listExcludeListByType
+      summary: List Exclude List Items by Type
+      description: |
+        Returns all exclude list entries of a specific type.
+
+        | `type` value | Description |
+        |---|---|
+        | `serverGlob` | Servers with or without wildcards (`*`) |
+        | `ip` | IP addresses |
+        | `useragent` | User-agent strings |
+        | `visitorId` | Specific visitor IDs |
+        | `cookieValue` | Specific cookie values |
+      parameters:
+        - name: type
+          in: path
+          required: true
+          description: Entry type to filter by.
+          schema:
+            type: string
+            enum: [serverGlob, ip, useragent, visitorId, cookieValue]
+      responses:
+        '200':
+          description: Array of exclude list entries matching the type.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+      security:
+        - pendo_integration_key: []
+
+  /servername:
+    get:
+      tags:
+        - ExcludeList
+      operationId: listServerNames
+      summary: List All Server Names
+      description: Returns all server names recorded by Pendo over the life of the subscription.
+      responses:
+        '200':
+          description: Array of server name objects.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+      security:
+        - pendo_integration_key: []
+
+  /servername/{name}:
+    get:
+      tags:
+        - ExcludeList
+      operationId: getServerName
+      summary: Get Server by Name
+      description: Returns a single server record by its URL-encoded name.
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: URL-encoded server name.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Server name object.
+          content:
+            application/json:
+              schema:
+                type: object
+      security:
+        - pendo_integration_key: []
+
+  /servername/flag/{flagname}:
+    get:
+      tags:
+        - ExcludeList
+      operationId: getServersByFlag
+      summary: Get Servers by Flag
+      description: |
+        Returns all servers matching the specified flag.
+
+        | `flagname` | Returns |
+        |---|---|
+        | `blacklisted` | All excluded/blacklisted servers |
+        | `staging` | All servers flagged as staging environments |
+      parameters:
+        - name: flagname
+          in: path
+          required: true
+          description: '`blacklisted` or `staging`'
+          schema:
+            type: string
+            enum: [blacklisted, staging]
+      responses:
+        '200':
+          description: Array of server name objects matching the flag.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+      security:
+        - pendo_integration_key: []
+
+  # ── Data Sync ─────────────────────────────────────────────────────────────────
+
+  /datasync/storageTypes/gcs/destinations/Default/credentials:
+    put:
+      tags:
+        - DataSync
+      operationId: rotateGcsCredentials
+      summary: Rotate GCS Data Sync Credentials
+      description: |
+        Rotates the service account and secret key for a Google Cloud Storage (GCS)
+        Data Sync destination that has already been configured in the Pendo UI.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - serviceAccount
+                - secretKey
+              properties:
+                serviceAccount:
+                  type: string
+                  description: GCS service account email address.
+                  example: "service-account@project.iam.gserviceaccount.com"
+                secretKey:
+                  type: string
+                  description: Service account private key.
+      responses:
+        '200':
+          description: Credentials rotated successfully.
+        '400':
+          description: Invalid credential format.
+        '404':
+          description: GCS destination not configured.
+      security:
+        - pendo_integration_key: []
+
+  /datasync/storageTypes/s3/destinations/Default/credentials:
+    put:
+      tags:
+        - DataSync
+      operationId: rotateS3Credentials
+      summary: Rotate S3 Data Sync Credentials
+      description: |
+        Rotates the access key ID and secret for an Amazon S3 Data Sync destination
+        that has already been configured in the Pendo UI.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - accessKeyId
+                - secretAccessKey
+              properties:
+                accessKeyId:
+                  type: string
+                  description: AWS access key ID.
+                  example: "AKIAIOSFODNN7EXAMPLE"
+                secretAccessKey:
+                  type: string
+                  description: AWS secret access key.
+      responses:
+        '200':
+          description: Credentials rotated successfully.
+        '400':
+          description: Invalid credential format.
+        '404':
+          description: S3 destination not configured.
+      security:
+        - pendo_integration_key: []
+
+  /datasync/storageTypes/azure/destinations/Default/credentials:
+    put:
+      tags:
+        - DataSync
+      operationId: rotateAzureCredentials
+      summary: Rotate Azure Data Sync Credentials
+      description: |
+        Rotates the client ID and secret for a Microsoft Azure Data Sync destination
+        that has already been configured in the Pendo UI.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - clientId
+                - clientSecret
+              properties:
+                clientId:
+                  type: string
+                  description: Azure application (client) ID.
+                  example: "0b501e7e-feed-da1e-iced-c0ffee000000"
+                clientSecret:
+                  type: string
+                  description: Azure client secret value.
+      responses:
+        '200':
+          description: Credentials rotated successfully.
+        '400':
+          description: Invalid credential format.
+        '404':
+          description: Azure destination not configured.
+      security:
+        - pendo_integration_key: []
+
+  # ── Feedback (Listen) ─────────────────────────────────────────────────────────
+
+  /feedback/options:
+    get:
+      tags:
+        - Feedback
+      operationId: getFeedbackOptions
+      summary: Get Feedback Submission Options
+      description: |
+        Returns the list of options required to submit feedback, such as available
+        product areas, importance levels, and label categories.
+      responses:
+        '200':
+          description: Feedback options object.
+          content:
+            application/json:
+              schema:
+                type: object
+      security:
+        - pendo_integration_key: []
+
+  /feedback:
+    post:
+      tags:
+        - Feedback
+      operationId: createFeedback
+      summary: Create Feedback
+      description: Creates a new Listen feedback item.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackInput'
+            example:
+              accountId: "exampleAccount"
+              visitorId: "exampleVisitor"
+              createdById: "anotherVisitor"
+              createdAt: 1746194289860
+              title: "Feature request: dark mode"
+              description: "Would love a dark mode for the dashboard."
+              appIds: [-323232]
+              labels:
+                - name: "Admin"
+                  category: "Role"
+              importance: 2
+              productAreas: ["dashboard"]
+      responses:
+        '200':
+          description: Feedback item created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Feedback'
+        '400':
+          description: Missing or invalid required fields (accountId, title, appIds, importance).
+      security:
+        - pendo_integration_key: []
+    delete:
+      tags:
+        - Feedback
+      operationId: deleteFeedback
+      summary: Delete Feedback Items
+      description: |
+        Deletes up to 10 feedback items by ID. Feedback IDs can be found in the URL when
+        viewing an item in the UI, or retrieved in bulk via the `vocItems` aggregation source.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ids
+              properties:
+                ids:
+                  type: array
+                  description: List of feedback item IDs to delete (max 10).
+                  items:
+                    type: string
+                  maxItems: 10
+            example:
+              ids:
+                - "SGPf_7N4v-DLn8o2lh5f0_TMOZY"
+                - "8F-vM0nmw_wbVWMn6aD0Iz07RIo"
+      responses:
+        '200':
+          description: Feedback items deleted.
+        '400':
+          description: More than 10 IDs provided, or invalid ID format.
+      security:
+        - pendo_integration_key: []
+
+  /feedback/{id}:
+    patch:
+      tags:
+        - Feedback
+      operationId: updateFeedback
+      summary: Update Feedback
+      description: |
+        Updates an existing feedback item. Only fields included in the request body are
+        changed; omitted fields retain their current values.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the feedback item to update.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackInput'
+            example:
+              title: "Updated title"
+              description: "Updated description with more detail."
+              importance: 3
+              labels:
+                - name: "Power User"
+                  category: "Role"
+      responses:
+        '200':
+          description: Feedback item updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Feedback'
+        '400':
+          description: Invalid field values.
+        '404':
+          description: Feedback item not found.
+      security:
+        - pendo_integration_key: []
+
+  # ── Aggregation ───────────────────────────────────────────────────────────────
+
+  /aggregation:
+    post:
+      tags:
+        - Aggregation
+      operationId: runAggregation
+      summary: Run Aggregation Query
+      description: |
+        Execute a pipeline-based aggregation query against any Pendo data source.
+        This is the same engine used to power all charts, graphs, and reports in the UI.
+
+        ## Pipeline stages
+        Each pipeline stage is one of:
+        | Stage | Description |
+        |---|---|
+        | `source` | Defines the data source and optional time window |
+        | `filter` | MongoDB-style filter predicate |
+        | `identified` | Group by a specific field |
+        | `reduce` | Aggregate grouped results with functions like `sum`, `count`, `max` |
+        | `select` | Project/rename output fields |
+        | `sort` | Order results |
+        | `limit` | Cap the number of rows |
+        | `spawn` | Run multiple sub-pipelines and merge results |
+        | `join` | Enrich results with fields from a secondary source |
+        | `unwind` | Flatten array fields into separate rows |
+        | `merge` | Combine parallel pipeline outputs |
+        | `bulkExpand` | Expand metadata fields inline |
+
+        ## Data sources
+        **Metadata / object sources:** `visitors`, `accounts`, `pages`, `features`,
+        `trackTypes`, `guides`, `groups`, `surveyItems`, `npsPredictions`,
+        `doNotProcessVisitors`, `doNotProcessAccounts`
+
+        **Event sources:** `events`, `pageEvents`, `featureEvents`, `trackEvents`,
+        `guideEvents`, `guidesSeen`, `guidesSeenEver`, `pollEvents`, `pollsSeen`,
+        `pollsSeenEver`, `surveyResponses`, `emailEvents`
+
+        **Listen sources:** `vocItems`, `votes`
+
+        ## Time series helpers
+        The `timeSeries` source parameter accepts:
+        - `first`: a date string or `now()`
+        - `count`: number of periods (negative = look back)
+        - `period`: `"hour"`, `"day"`, `"dayRange"`, `"week"`, `"month"`, `"year"`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - request
+              properties:
+                request:
+                  type: object
+                  required:
+                    - pipeline
+                  properties:
+                    name:
+                      type: string
+                      description: Optional query name for debugging.
+                    requestId:
+                      type: string
+                      description: Optional correlation ID returned in the response.
+                    pipeline:
+                      type: array
+                      description: Ordered array of pipeline stage objects.
+                      items:
+                        type: object
+                response:
+                  type: object
+                  properties:
+                    mimeType:
+                      type: string
+                      description: Desired response format. Default is `application/json`.
+                      enum: [application/json, text/csv]
+                      default: application/json
+            examples:
+              pageEventsByVisitor:
+                summary: Page events by visitor (last 30 days)
+                value:
+                  request:
+                    name: page-events-by-visitor
+                    pipeline:
+                      - source:
+                          pageEvents: null
+                          timeSeries:
+                            first: "now()"
+                            count: -30
+                            period: dayRange
+                      - identified: visitorId
+                      - reduce:
+                          - count: 1
+                    requestId: page-events-by-visitor
+                  response:
+                    mimeType: application/json
+              visitorsBySegment:
+                summary: Visitors in a segment
+                value:
+                  request:
+                    name: visitors-by-segment
+                    pipeline:
+                      - source:
+                          visitors: null
+                          identified: visitorId
+                      - filter:
+                          segmentId: "your-segment-id"
+                    requestId: visitors-by-segment
+                  response:
+                    mimeType: application/json
+              npsResponses:
+                summary: NPS poll responses
+                value:
+                  request:
+                    name: nps-responses
+                    pipeline:
+                      - source:
+                          pollEvents: null
+                          timeSeries:
+                            first: "now()"
+                            count: -90
+                            period: dayRange
+                      - filter:
+                          pollType: nps
+                      - select:
+                          visitorId: visitorId
+                          accountId: accountId
+                          score: numericResponse
+                          submittedAt: browserTime
+                    requestId: nps-responses
+                  response:
+                    mimeType: application/json
+      responses:
+        '200':
+          description: Query results.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                  startTime:
+                    type: integer
+                  duration:
+                    type: integer
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Invalid pipeline syntax or unknown source.
+      security:
+        - pendo_integration_key: []
+
+# ── Track & Conversations (data.pendo.io) ─────────────────────────────────────
+# These endpoints use a different base URL and a different API key
+# (Track Event Shared Secret, not the Integration Key).
+# They are documented here as x-servers overrides on each operation.
+
+  /data/track:
+    post:
+      tags:
+        - Track
+      operationId: sendTrackEvent
+      summary: Send Track Event
+      description: |
+        Records a custom action (track event) for a visitor.
+
+        **Base URL:** `https://data.pendo.io` (not `app.pendo.io`).
+
+        **Authentication:** Use your **Track Event Shared Secret** in the
+        `x-pendo-integration-key` header — this is different from your Integration Key.
+
+        Each event has a `type` (`"track"`), an `event` name, and optional `properties`
+        and `context` objects.
+      servers:
+        - url: https://data.pendo.io
+          description: Pendo Track & Conversations ingest endpoint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrackEvent'
+            example:
+              type: "track"
+              event: "Registered"
+              visitorId: "unique-visitor-id"
+              accountId: "account-id"
+              timestamp: 1680373680000
+              properties:
+                plan: "Pro"
+              context:
+                ip: "76.253.187.23"
+                userAgent: "Mozilla/5.0"
+                url: "https://app.example.com/register"
+                title: "Register - My App"
+      responses:
+        '200':
+          description: Event accepted.
+        '400':
+          description: Invalid payload.
+      security:
+        - pendo_track_secret: []
+
+  /data/agentic:
+    post:
+      tags:
+        - Conversations
+      operationId: sendConversationEvent
+      summary: Send Conversation Event
+      description: |
+        Captures AI agent interactions such as prompts, responses, and tool usage.
+        Use this to track conversations in mobile apps, browser extensions, and other
+        non-web environments.
+
+        **Base URL:** `https://data.pendo.io` (not `app.pendo.io`).
+
+        **Authentication:** Use your **Track Event Shared Secret** in the
+        `x-pendo-integration-key` header.
+
+        The `type` field should be `"prompt"` or `"response"`.
+      servers:
+        - url: https://data.pendo.io
+          description: Pendo Track & Conversations ingest endpoint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConversationEvent'
+            example:
+              type: "prompt"
+              visitor_id: "exampleVisitor"
+              account_id: "exampleAccount"
+              timestamp: 1769802954000
+              props:
+                agentId: "0MjY3pcq1FFxH3a5KBGKUoPvEIk"
+                conversationId: "conv_1765734044978_6erskba"
+                messageId: "message_from_api1"
+                content: "How do I export my usage data from the dashboard?"
+                suggestedPrompt: false
+                toolsUsed: ["search", "knowledge_base"]
+                agentModelUsed: ["gpt-4", "claude-3"]
+                agentInputTokenCount: 512
+                agentOutputTokenCount: 128
+              context:
+                ip: "76.253.187.23"
+                userAgent: "Chrome/65.0.3325.181"
+                url: "https://mypage.com/admin"
+      responses:
+        '200':
+          description: Conversation event accepted.
+        '400':
+          description: Invalid payload.
+      security:
+        - pendo_track_secret: []
 
 components:
+  parameters:
+    segmentId:
+      name: segmentId
+      in: path
+      required: true
+      description: ID of the segment.
+      schema:
+        type: string
+
+    visitorIdPath:
+      name: visitorId
+      in: path
+      required: true
+      description: URL-encoded visitor ID.
+      schema:
+        type: string
+
+    guideId:
+      name: guideId
+      in: path
+      required: true
+      description: ID of the guide.
+      schema:
+        type: string
+
+    reportId:
+      name: reportId
+      in: path
+      required: true
+      description: ID of the report.
+      schema:
+        type: string
+
+    metadataKind:
+      name: kind
+      in: path
+      required: true
+      description: '`visitor` or `account`'
+      schema:
+        type: string
+        enum: [visitor, account]
+
+    metadataGroup:
+      name: group
+      in: path
+      required: true
+      description: '`agent` or `custom`'
+      schema:
+        type: string
+        enum: [agent, custom]
+
+    metadataId:
+      name: id
+      in: path
+      required: true
+      description: ID of the visitor or account being updated.
+      schema:
+        type: string
+
+    metadataFieldName:
+      name: fieldName
+      in: path
+      required: true
+      description: Internal name of the metadata field.
+      schema:
+        type: string
+
   schemas:
+
     Visitor:
       type: object
-      description: Visitor Object
+      description: Visitor object returned by the visitor endpoints.
       properties:
-        id: 
-          description: Unique identifier for the visitor.
+        id:
           type: string
+          description: Unique visitor ID.
           example: "4203948023423"
         email:
-          description: visitor email
           type: string
-          example: "shinya.hashimoto@zero1.jp"
+          description: Visitor email address (from agent metadata).
+          example: "user@example.com"
         accountIds:
           type: array
-          example: ["shin nihon prowrestling","zero One"]
+          description: All account IDs associated with this visitor.
+          items:
+            type: string
+          example: ["acme-corp", "subsidiary-inc"]
         metadata:
           type: object
           properties:
             agent:
               type: object
+              description: Metadata passed through the installation snippet.
               properties:
                 email:
                   type: string
-                  example: shinya.hashimoto@zero1.jp
-                ipaddress: 
+                  example: "user@example.com"
+                ipaddress:
                   type: string
-                  example: "192.168.10.1"
+                  example: "192.168.1.1"
                 language:
                   type: string
-                  example: "ja"
+                  example: "en"
             auto:
               type: object
+              description: Metadata automatically generated by Pendo.
               properties:
                 accountid:
                   type: string
                 accountids:
                   type: array
-                  example: ["zero one"]
+                  items:
+                    type: string
                 firstvisit:
                   type: integer
+                  format: int64
+                  description: Unix timestamp (ms) of the visitor's first visit.
                   example: 1506351511034
                 id:
-                  type: integer
-                  example: 4203948023423
+                  type: string
+                  example: "4203948023423"
                 idhash:
                   type: string
-                lastbrowsername: 
+                lastbrowsername:
                   type: string
-                  example: Chrome
-                lastbrowserversion: 
+                  example: "Chrome"
+                lastbrowserversion:
                   type: string
-                  example: 99.0.013
+                  example: "99.0.0"
                 lastoperatingsystem:
                   type: string
-                  example: Mac OS X
+                  example: "Mac OS X"
                 lastservername:
                   type: string
-                  example: zeroone.jp
+                  example: "app.example.com"
                 lastupdated:
                   type: integer
-                lastuseragent: 
+                  format: int64
+                lastuseragent:
                   type: string
-                  example: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36"
                 lastvisit:
                   type: integer
+                  format: int64
+                  description: Unix timestamp (ms) of the visitor's most recent visit.
                   example: 1506976690112
                 nid:
                   type: string
-                  example: 42
-            visitorId:
-              type: string
-              example: 9080i
-              description: The Account ID last associated with the visitor.       
+
     Account:
       type: object
-      description: Account object
+      description: Account object returned by the account endpoints.
       properties:
         id:
           type: string
-          example: "zeta and sons"
-          description: Unique identifier for the visitor.
+          description: Unique account ID.
+          example: "acme-corp"
         metadata:
           type: object
           properties:
             agent:
               type: object
+              description: Metadata passed through the installation snippet.
             auto:
               type: object
+              description: Metadata automatically generated by Pendo.
               properties:
                 firstvisit:
                   type: integer
+                  format: int64
+                  description: Unix timestamp (ms) of the account's first visit.
                   example: 1506349414089
-                id: 
+                id:
                   type: string
-                  example: "Zeta and Sons"
+                  example: "acme-corp"
                 idhash:
                   type: integer
                   example: 1129480058
                 lastupdated:
                   type: integer
+                  format: int64
                   example: 1506349414757
-                lastvisited:
+                lastvisit:
                   type: integer
+                  format: int64
                   example: 1506349414089
+
+    Page:
+      type: object
+      description: Tagged page definition.
+      properties:
+        id:
+          type: string
+          description: Unique page ID.
+        appId:
+          type: string
+          description: ID of the application this page belongs to.
+        name:
+          type: string
+          description: Display name of the page.
+        rules:
+          type: array
+          description: URL match rules used to identify this page.
+          items:
+            type: object
+        createdAt:
+          type: integer
+          format: int64
+          description: Unix timestamp (ms) when the page was created.
+        lastUpdatedAt:
+          type: integer
+          format: int64
+
+    Feature:
+      type: object
+      description: Tagged feature definition.
+      properties:
+        id:
+          type: string
+          description: Unique feature ID.
+        appId:
+          type: string
+          description: ID of the application this feature belongs to.
+        name:
+          type: string
+          description: Display name of the feature.
+        elementPathRules:
+          type: array
+          description: DOM element selector rules used to identify this feature.
+          items:
+            type: object
+        pageId:
+          type: string
+          description: ID of the page this feature is tagged on.
+        createdAt:
+          type: integer
+          format: int64
+        lastUpdatedAt:
+          type: integer
+          format: int64
+
+    TrackType:
+      type: object
+      description: Track event type definition.
+      properties:
+        id:
+          type: string
+          description: Unique track type ID.
+        appId:
+          type: string
+        name:
+          type: string
+          description: Event name as sent in the track call.
+        createdAt:
+          type: integer
+          format: int64
+        lastUpdatedAt:
+          type: integer
+          format: int64
+
+    Guide:
+      type: object
+      description: Guide object.
+      properties:
+        id:
+          type: string
+          description: Unique guide ID.
+        appId:
+          type: string
+        name:
+          type: string
+          description: Display name of the guide.
+        state:
+          type: string
+          description: Current publish state.
+          enum: [staged, published, disabled, draft]
+        steps:
+          type: array
+          description: Ordered list of guide steps.
+          items:
+            type: object
+        createdAt:
+          type: integer
+          format: int64
+        lastUpdatedAt:
+          type: integer
+          format: int64
+
+    Segment:
+      type: object
+      description: Visitor segment definition.
+      properties:
+        id:
+          type: string
+          description: Unique segment ID.
+        name:
+          type: string
+          description: Display name of the segment.
+        definition:
+          type: object
+          description: Segment rule definition. Present only on rule-based segments.
+        createdAt:
+          type: integer
+          format: int64
+        lastUpdatedAt:
+          type: integer
+          format: int64
+
+    Report:
+      type: object
+      description: Public report definition.
+      properties:
+        id:
+          type: string
+          description: Unique report ID.
+        name:
+          type: string
+          description: Display name of the report.
+        kind:
+          type: string
+          description: Report type (e.g. `visitors`, `accounts`, `funnels`).
+        createdAt:
+          type: integer
+          format: int64
+        lastUpdatedAt:
+          type: integer
+          format: int64
+
+    BulkDeletionRequest:
+      type: object
+      description: Status record for a bulk deletion job.
+      properties:
+        id:
+          type: string
+          description: Unique ID for this deletion request.
+        status:
+          type: string
+          description: Current state of the request.
+          enum: [pending, processing, completed, failed]
+        type:
+          type: string
+          description: '`visitor` or `account`'
+          enum: [visitor, account]
+        requestedAt:
+          type: integer
+          format: int64
+          description: Unix timestamp (ms) when the request was submitted.
+        completedAt:
+          type: integer
+          format: int64
+          description: Unix timestamp (ms) when the request completed.
+        totalRequested:
+          type: integer
+          description: Number of entities submitted for deletion.
+        totalDeleted:
+          type: integer
+          description: Number of entities successfully deleted.
+
+    TrackEvent:
+      type: object
+      description: Custom track event payload.
+      required:
+        - type
+        - event
+        - visitorId
+      properties:
+        type:
+          type: string
+          description: Must be `"track"`.
+          enum: [track]
+        event:
+          type: string
+          description: Name of the event.
+          example: "Registered"
+        visitorId:
+          type: string
+          description: ID of the visitor performing the action.
+        accountId:
+          type: string
+          description: Account ID associated with the visitor.
+        timestamp:
+          type: integer
+          format: int64
+          description: Unix timestamp (ms) when the event occurred. Defaults to now.
+        properties:
+          type: object
+          description: Arbitrary key-value pairs describing the event.
+          additionalProperties: true
+        context:
+          type: object
+          properties:
+            ip:
+              type: string
+              description: IP address of the visitor.
+            userAgent:
+              type: string
+              description: User-agent string.
+            url:
+              type: string
+              description: URL where the event occurred.
+            title:
+              type: string
+              description: Page title where the event occurred.
+
+    ConversationEvent:
+      type: object
+      description: AI conversation event payload for the Conversations API.
+      required:
+        - type
+        - visitor_id
+        - timestamp
+        - props
+      properties:
+        type:
+          type: string
+          description: '`"prompt"` (user message) or `"response"` (agent reply).'
+          enum: [prompt, response]
+        visitor_id:
+          type: string
+          description: ID of the visitor involved in the conversation.
+        account_id:
+          type: string
+          description: Account ID associated with the visitor.
+        timestamp:
+          type: integer
+          format: int64
+          description: Unix timestamp (ms) when the event occurred.
+        props:
+          type: object
+          description: Conversation-specific properties.
+          properties:
+            agentId:
+              type: string
+              description: Identifier of the AI agent.
+            conversationId:
+              type: string
+              description: Unique ID for the conversation thread.
+            messageId:
+              type: string
+              description: Unique ID for this specific message.
+            content:
+              type: string
+              description: Text content of the prompt or response.
+            suggestedPrompt:
+              type: boolean
+              description: Whether this was a suggested prompt shown to the user.
+            toolsUsed:
+              type: array
+              description: Names of tools invoked during this turn.
+              items:
+                type: string
+            agentModelUsed:
+              type: array
+              description: AI model(s) used to generate the response.
+              items:
+                type: string
+            agentFilesUploaded:
+              type: array
+              description: Files attached to the message.
+              items:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    example: "csv"
+                  name:
+                    type: string
+            agentSubagentsUsed:
+              type: array
+              description: Sub-agent identifiers invoked during this turn.
+              items:
+                type: string
+            agentInputTokenCount:
+              type: integer
+              description: Number of input tokens consumed.
+            agentOutputTokenCount:
+              type: integer
+              description: Number of output tokens generated.
+        context:
+          type: object
+          properties:
+            ip:
+              type: string
+            userAgent:
+              type: string
+            url:
+              type: string
+
+    FeedbackInput:
+      type: object
+      description: Feedback item create/update payload.
+      properties:
+        accountId:
+          type: string
+          description: Account ID to associate with this feedback.
+        visitorId:
+          type: string
+          description: Visitor ID of the submitter.
+        createdById:
+          type: string
+          description: Visitor ID of the user creating the feedback on behalf of another.
+        createdAt:
+          type: integer
+          format: int64
+          description: Unix timestamp (ms) to set as the creation time.
+        title:
+          type: string
+          description: Short title summarising the feedback. **Required on create.**
+        description:
+          type: string
+          description: Longer description of the feedback.
+        appIds:
+          type: array
+          description: Application IDs this feedback applies to. **Required on create.**
+          items:
+            type: integer
+        labels:
+          type: array
+          description: Labels to attach to the feedback item.
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              category:
+                type: string
+        importance:
+          type: integer
+          description: Numeric importance level (1–5). **Required on create.**
+          minimum: 1
+          maximum: 5
+        productAreas:
+          type: array
+          description: Product area identifiers this feedback relates to.
+          items:
+            type: string
+
+    Feedback:
+      type: object
+      description: Feedback item returned by the API.
+      properties:
+        id:
+          type: string
+          description: Unique feedback ID.
+        accountId:
+          type: string
+        visitorId:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        importance:
+          type: integer
+        labels:
+          type: array
+          items:
+            type: object
+        createdAt:
+          type: integer
+          format: int64
+        updatedAt:
+          type: integer
+          format: int64
+
     accountSchema:
       type: object
+      description: Metadata schema for accounts.
       properties:
         agent:
           type: object
+          description: Agent metadata fields.
           properties:
             name:
-              type: object
-              properties:
-                Type:
-                  type: string
-                DisplayName:
-                  type: string
-                ElementType:
-                  type: string
-                Dirty:
-                  type: boolean
-                  example: false
-                sample:
-                  type: string
-                  example: org1234567
-                isHidden: 
-                  type: boolean
-                  example: false
-                isDeleted: 
-                  type: boolean
-                  example: false
-                isCalculated:
-                  type: boolean
-                  example: false
-                isPerapp:
-                  type: boolean
-                  example: false
-                neverIndex:
-                  type: boolean
-                  example: false
+              $ref: '#/components/schemas/MetadataFieldSchema'
         auto:
+          type: object
+          description: Automatically generated metadata fields.
           properties:
             firstvisit:
-              type: object
-              properties:
-                Type:
-                  type: string
-                  example: time
-                DisplayName:
-                  type: string
-                  example: First Visit
-                ElementType:
-                  type: string
-                ElementFormat:
-                  type: string
-                  example: milliseconds
-                Dirty:
-                  type: boolean
-                  example: false
-                isHidden: 
-                  type: boolean
-                  example: false
-                isDeleted: 
-                  type: boolean
-                  example: false
-                isCalculated:
-                  type: boolean
-                  example: false
-                isPerapp:
-                  type: boolean
-                  example: false
-                neverIndex:
-                  type: boolean
-                  example: false
-        id:
-           properties:
-                Type:
-                  type: string
-                  example: string
-                DisplayName:
-                  type: string
-                  example: Account ID
-                ElementType:
-                  type: string
-                Dirty:
-                  type: boolean
-                  example: false                  
-                isHidden: 
-                  type: boolean
-                  example: false
-                isDeleted: 
-                  type: boolean
-                  example: false
-                isCalculated:
-                  type: boolean
-                  example: false
-                isPerapp:
-                  type: boolean
-                  example: false
-                neverIndex:
-                  type: boolean
-                  example: false
-        lastvisit:
-          properties:
-            firstvisit:
-              type: object
-              properties:
-                Type:
-                  type: string
-                  example: time
-                DisplayName:
-                  type: string
-                  example: Last Visit
-                ElementType:
-                  type: string
-                ElementFormat:
-                  type: string
-                  example: milliseconds
-                Dirty:
-                  type: boolean
-                  example: false
-                isHidden: 
-                  type: boolean
-                  example: false
-                isDeleted: 
-                  type: boolean
-                  example: false
-                isCalculated:
-                  type: boolean
-                  example: false
-                isPerapp:
-                  type: boolean
-                  example: false
-                neverIndex:
-                  type: boolean
-                  example: false
+              $ref: '#/components/schemas/MetadataFieldSchema'
+            lastvisit:
+              $ref: '#/components/schemas/MetadataFieldSchema'
+            id:
+              $ref: '#/components/schemas/MetadataFieldSchema'
         pendo:
+          type: object
+          description: Pendo system metadata fields.
           properties:
             donotprocess:
-              type: object
-              properties:
-                Type:
-                  type: string
-                  example: boolean
-                DisplayName:
-                  type: string
-                  example: Do Not Process
-                ElementType:
-                  type: string
-                ElementFormat:
-                  type: string
-                Dirty:
-                  type: boolean
-                  example: false
-                isHidden: 
-                  type: boolean
-                  example: false
-                isDeleted: 
-                  type: boolean
-                  example: false
-                isCalculated:
-                  type: boolean
-                  example: false
-                isPerapp:
-                  type: boolean
-                  example: false
-                neverIndex:
-                  type: boolean
-                  example: false
+              $ref: '#/components/schemas/MetadataFieldSchema'
+            blacklistguides:
+              $ref: '#/components/schemas/MetadataFieldSchema'
+
     visitorSchema:
       type: object
+      description: Metadata schema for visitors.
       properties:
         agent:
-         properties:
-           full_name:
-             type: object
-             properties:
-               Type:
-                 type: string
-                 example: string
+          type: object
+          description: Agent metadata fields.
+          additionalProperties:
+            $ref: '#/components/schemas/MetadataFieldSchema'
+        auto:
+          type: object
+          description: Automatically generated metadata fields.
+          additionalProperties:
+            $ref: '#/components/schemas/MetadataFieldSchema'
+        pendo:
+          type: object
+          description: Pendo system metadata fields.
+          additionalProperties:
+            $ref: '#/components/schemas/MetadataFieldSchema'
+        custom:
+          type: object
+          description: User-defined custom metadata fields.
+          additionalProperties:
+            $ref: '#/components/schemas/MetadataFieldSchema'
+
+    MetadataFieldSchema:
+      type: object
+      description: Schema definition for a single metadata field.
+      properties:
+        Type:
+          type: string
+          description: Data type — `string`, `number`, `boolean`, `time`, or `list`.
+          example: "string"
+        DisplayName:
+          type: string
+          description: Human-readable display name shown in the UI.
+          example: "Plan Type"
+        ElementType:
+          type: string
+          description: Type of array elements (for `list` fields).
+        ElementFormat:
+          type: string
+          description: Format hint (e.g. `"milliseconds"` for time fields).
+          example: "milliseconds"
+        Dirty:
+          type: boolean
+          description: Whether the field has uncommitted changes.
+          example: false
+        isHidden:
+          type: boolean
+          example: false
+        isDeleted:
+          type: boolean
+          example: false
+        isCalculated:
+          type: boolean
+          example: false
+        isPerapp:
+          type: boolean
+          description: Whether the field value is tracked per application.
+          example: false
+        neverIndex:
+          type: boolean
+          example: false
+
   securitySchemes:
     pendo_integration_key:
       type: apiKey
       in: header
       name: x-pendo-integration-key
+      description: |
+        Your Pendo Integration Key. Found in **Subscription Settings → Integrations**.
+        Used for all `app.pendo.io` API endpoints.
+    pendo_track_secret:
+      type: apiKey
+      in: header
+      name: x-pendo-integration-key
+      description: |
+        Your Pendo Track Event Shared Secret. Found in **Subscription Settings → Integrations**.
+        Used only for the `data.pendo.io` Track and Conversations endpoints.
+        This is a **different key** from the Integration Key.

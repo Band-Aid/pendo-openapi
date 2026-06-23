@@ -12,14 +12,15 @@
         const ui = SwaggerUIBundle({
           urls: [
             {
+              name: "Pendo API - EN",
+              url: "api/openapi.yaml",
+            },
+            {
               name: "Pendo API - JP",
               url: "https://raw.githubusercontent.com/Band-Aid/pendo-openapi/japanese/openapi-jp.yaml",
             },
-            {
-              name: "Pendo API - EN",
-              url: "https://raw.githubusercontent.com/Band-Aid/pendo-openapi/main/api/openapi.yaml",
-            },
           ],
+          "urls.primaryName": "Pendo API - EN",
           dom_id: "#swagger-ui",
           deepLinking: true,
           presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
