@@ -1,20 +1,448 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
   <head>
-    <script src="https://unpkg.com/swagger-ui-dist@3/swagger-ui-bundle.js"></script>
-    <script src="https://unpkg.com/swagger-ui-dist@3/swagger-ui-standalone-preset.js"></script>
-    <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@3/swagger-ui.css" />
-    <title>Pendo API Swagger UI</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pendo API Reference</title>
+    <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+    <style>
+      /* ── Base ──────────────────────────────────────────────────────────── */
+      *, *::before, *::after { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        background: #f0f2f5;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      }
+
+      /* ── Topbar ────────────────────────────────────────────────────────── */
+      .swagger-ui .topbar {
+        background: #1a1f36;
+        border-bottom: none;
+        padding: 10px 0;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+      }
+
+      /* Hide the Swagger logo image */
+      .swagger-ui .topbar img,
+      .swagger-ui .topbar .link { display: none; }
+
+      /* Custom title injected via JS */
+      #topbar-title {
+        color: #fff;
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+        padding: 0 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      #topbar-title span.badge {
+        background: #e8375a;
+        color: #fff;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        padding: 3px 8px;
+        border-radius: 4px;
+      }
+
+      .swagger-ui .topbar .download-url-wrapper {
+        padding: 0 20px;
+      }
+
+      .swagger-ui .topbar .download-url-wrapper .select-label {
+        color: #94a3b8;
+        font-size: 13px;
+      }
+
+      .swagger-ui .topbar .download-url-wrapper .select-label select {
+        background: #2d3555;
+        color: #e2e8f0;
+        border: 1px solid #3d4a6a;
+        border-radius: 6px;
+        padding: 6px 10px;
+        font-size: 13px;
+        outline: none;
+      }
+
+      .swagger-ui .topbar .download-url-wrapper input[type="text"] {
+        background: #2d3555;
+        color: #e2e8f0;
+        border: 1px solid #3d4a6a;
+        border-radius: 6px 0 0 6px;
+        padding: 6px 10px;
+        font-size: 13px;
+        outline: none;
+      }
+
+      .swagger-ui .topbar .download-url-wrapper .download-url-button {
+        background: #e8375a;
+        border: none;
+        border-radius: 0 6px 6px 0;
+        color: #fff;
+        font-weight: 600;
+        font-size: 13px;
+        padding: 6px 14px;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+
+      .swagger-ui .topbar .download-url-wrapper .download-url-button:hover {
+        background: #c42d4c;
+      }
+
+      /* ── Main layout ───────────────────────────────────────────────────── */
+      .swagger-ui {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 0 16px 60px;
+      }
+
+      /* ── Info block ────────────────────────────────────────────────────── */
+      .swagger-ui .information-container {
+        background: #fff;
+        border-radius: 10px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        padding: 28px 32px;
+        margin: 24px 0 20px;
+      }
+
+      .swagger-ui .info .title {
+        color: #1a1f36;
+        font-size: 26px;
+        font-weight: 800;
+      }
+
+      .swagger-ui .info .title small {
+        background: #e8375a;
+        color: #fff;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        padding: 3px 8px;
+        border-radius: 4px;
+        vertical-align: middle;
+        margin-left: 8px;
+      }
+
+      .swagger-ui .info p,
+      .swagger-ui .info li {
+        color: #475569;
+        font-size: 14px;
+        line-height: 1.7;
+      }
+
+      .swagger-ui .info a { color: #e8375a; }
+
+      .swagger-ui .info table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 8px 0;
+      }
+
+      .swagger-ui .info table th,
+      .swagger-ui .info table td {
+        border: 1px solid #e2e8f0;
+        padding: 6px 12px;
+        font-size: 13px;
+        color: #374151;
+      }
+
+      .swagger-ui .info table th {
+        background: #f8fafc;
+        font-weight: 600;
+      }
+
+      /* ── Scheme / server bar ───────────────────────────────────────────── */
+      .swagger-ui .scheme-container {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        padding: 14px 24px;
+        margin-bottom: 20px;
+      }
+
+      /* ── Tag sections ──────────────────────────────────────────────────── */
+      .swagger-ui .opblock-tag {
+        border-bottom: 2px solid #e2e8f0;
+        margin: 0 0 4px;
+        padding: 14px 0 10px;
+        font-size: 17px;
+        font-weight: 700;
+        color: #1a1f36;
+        transition: color 0.15s;
+      }
+
+      .swagger-ui .opblock-tag:hover { color: #e8375a; }
+
+      .swagger-ui .opblock-tag small {
+        color: #64748b;
+        font-size: 13px;
+        font-weight: 400;
+      }
+
+      /* ── Operation blocks ──────────────────────────────────────────────── */
+      .swagger-ui .opblock {
+        border-radius: 8px;
+        border: 1px solid transparent;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+        margin: 6px 0;
+        overflow: hidden;
+        transition: box-shadow 0.15s;
+      }
+
+      .swagger-ui .opblock:hover {
+        box-shadow: 0 3px 10px rgba(0,0,0,0.11);
+      }
+
+      /* GET */
+      .swagger-ui .opblock.opblock-get {
+        background: #f0f9ff;
+        border-color: #bae6fd;
+      }
+      .swagger-ui .opblock.opblock-get .opblock-summary-method {
+        background: #0284c7;
+      }
+
+      /* POST */
+      .swagger-ui .opblock.opblock-post {
+        background: #f0fdf4;
+        border-color: #bbf7d0;
+      }
+      .swagger-ui .opblock.opblock-post .opblock-summary-method {
+        background: #16a34a;
+      }
+
+      /* PUT */
+      .swagger-ui .opblock.opblock-put {
+        background: #fffbeb;
+        border-color: #fde68a;
+      }
+      .swagger-ui .opblock.opblock-put .opblock-summary-method {
+        background: #d97706;
+      }
+
+      /* PATCH */
+      .swagger-ui .opblock.opblock-patch {
+        background: #fdf4ff;
+        border-color: #e9d5ff;
+      }
+      .swagger-ui .opblock.opblock-patch .opblock-summary-method {
+        background: #9333ea;
+      }
+
+      /* DELETE */
+      .swagger-ui .opblock.opblock-delete {
+        background: #fff1f2;
+        border-color: #fecdd3;
+      }
+      .swagger-ui .opblock.opblock-delete .opblock-summary-method {
+        background: #e11d48;
+      }
+
+      /* Method pill */
+      .swagger-ui .opblock-summary-method {
+        border-radius: 5px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.8px;
+        min-width: 70px;
+        padding: 6px 10px;
+        text-align: center;
+        color: #fff !important;
+      }
+
+      /* Summary text */
+      .swagger-ui .opblock-summary-path {
+        font-size: 14px;
+        font-weight: 600;
+        color: #1e293b;
+      }
+
+      .swagger-ui .opblock-summary-description {
+        color: #64748b;
+        font-size: 13px;
+      }
+
+      /* Expanded body */
+      .swagger-ui .opblock-body {
+        background: #fff;
+        border-top: 1px solid #e2e8f0;
+        padding: 4px 0;
+      }
+
+      /* ── Models / Schemas ──────────────────────────────────────────────── */
+      .swagger-ui section.models {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        margin-top: 24px;
+        overflow: hidden;
+      }
+
+      .swagger-ui section.models h4 {
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        color: #1a1f36;
+        font-size: 16px;
+        font-weight: 700;
+        margin: 0;
+        padding: 14px 20px;
+      }
+
+      /* ── Parameters / response tables ─────────────────────────────────── */
+      .swagger-ui table.parameters {
+        border-collapse: collapse;
+        width: 100%;
+      }
+
+      .swagger-ui table.parameters th {
+        background: #f8fafc;
+        color: #475569;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        padding: 8px 12px;
+        border-bottom: 1px solid #e2e8f0;
+      }
+
+      .swagger-ui table.parameters td {
+        padding: 10px 12px;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 13px;
+        color: #374151;
+        vertical-align: top;
+      }
+
+      /* ── Response codes ────────────────────────────────────────────────── */
+      .swagger-ui .response-col_status {
+        font-weight: 700;
+        font-size: 14px;
+      }
+
+      .swagger-ui .responses-inner h4,
+      .swagger-ui .responses-inner h5 {
+        color: #1a1f36;
+        font-size: 13px;
+        font-weight: 600;
+      }
+
+      /* ── "Try it out" / Execute ────────────────────────────────────────── */
+      .swagger-ui .btn.try-out__btn {
+        background: #fff;
+        border: 1px solid #e8375a;
+        border-radius: 6px;
+        color: #e8375a;
+        font-size: 13px;
+        font-weight: 600;
+        padding: 6px 14px;
+        transition: background 0.15s, color 0.15s;
+      }
+
+      .swagger-ui .btn.try-out__btn:hover {
+        background: #e8375a;
+        color: #fff;
+      }
+
+      .swagger-ui .btn.execute {
+        background: #e8375a;
+        border-color: #e8375a;
+        border-radius: 6px;
+        color: #fff;
+        font-size: 13px;
+        font-weight: 600;
+        padding: 7px 20px;
+        transition: background 0.15s;
+      }
+
+      .swagger-ui .btn.execute:hover { background: #c42d4c; }
+
+      .swagger-ui .btn.cancel {
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 600;
+        padding: 7px 20px;
+      }
+
+      /* ── Code / pre blocks ─────────────────────────────────────────────── */
+      .swagger-ui .highlight-code pre,
+      .swagger-ui .microlight {
+        background: #1e293b !important;
+        border-radius: 6px;
+        color: #e2e8f0 !important;
+        font-size: 12px;
+        line-height: 1.6;
+        padding: 14px 16px !important;
+      }
+
+      /* ── Auth modal ────────────────────────────────────────────────────── */
+      .swagger-ui .dialog-ux .modal-ux {
+        border-radius: 10px;
+        border: none;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+      }
+
+      .swagger-ui .dialog-ux .modal-ux-header {
+        background: #1a1f36;
+        border-radius: 10px 10px 0 0;
+        padding: 16px 20px;
+      }
+
+      .swagger-ui .dialog-ux .modal-ux-header h3 {
+        color: #fff;
+        font-size: 16px;
+        font-weight: 700;
+        margin: 0;
+      }
+
+      .swagger-ui .auth-btn-wrapper .btn {
+        border-radius: 6px;
+        font-weight: 600;
+      }
+
+      /* ── Authorize button ──────────────────────────────────────────────── */
+      .swagger-ui .btn.authorize {
+        background: #fff;
+        border: 1.5px solid #e8375a;
+        border-radius: 6px;
+        color: #e8375a;
+        font-size: 13px;
+        font-weight: 600;
+        padding: 6px 16px;
+        transition: background 0.15s, color 0.15s;
+      }
+
+      .swagger-ui .btn.authorize:hover {
+        background: #e8375a;
+        color: #fff;
+      }
+
+      .swagger-ui .btn.authorize svg { fill: currentColor; }
+
+      /* ── Scrollbar (webkit) ────────────────────────────────────────────── */
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: #f1f5f9; }
+      ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+      ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
   </head>
   <body>
     <div id="swagger-ui"></div>
-    <script defer>
+    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js"></script>
+    <script>
       window.onload = function () {
         const ui = SwaggerUIBundle({
           urls: [
-            {
-              name: "Pendo API - EN",
-              url: "api/openapi.yaml",
-            },
+            { name: "Pendo API - EN", url: "api/openapi.yaml" },
             {
               name: "Pendo API - JP",
               url: "https://raw.githubusercontent.com/Band-Aid/pendo-openapi/japanese/openapi-jp.yaml",
@@ -23,30 +451,26 @@
           "urls.primaryName": "Pendo API - EN",
           dom_id: "#swagger-ui",
           deepLinking: true,
+          docExpansion: "list",
+          defaultModelsExpandDepth: 1,
           presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
           plugins: [SwaggerUIBundle.plugins.DownloadUrl],
           layout: "StandaloneLayout",
         });
         window.ui = ui;
+
+        // Inject custom title into topbar
+        const interval = setInterval(() => {
+          const topbar = document.querySelector(".swagger-ui .topbar-wrapper");
+          if (topbar && !document.getElementById("topbar-title")) {
+            const title = document.createElement("div");
+            title.id = "topbar-title";
+            title.innerHTML = 'Pendo API Reference <span class="badge">v1</span>';
+            topbar.prepend(title);
+            clearInterval(interval);
+          }
+        }, 100);
       };
     </script>
-    <style>
-      .swagger-ui .topbar .download-url-wrapper input[type="text"] {
-        border: 2px solid #77889a;
-      }
-      .swagger-ui .topbar .download-url-wrapper .download-url-button {
-        background: #77889a;
-      }
-      .swagger-ui img {
-        display: none;
-      }
-      .swagger-ui .topbar {
-        background-color: #ededed;
-        border-bottom: 2px solid #c1c1c1;
-      }
-      .swagger-ui .topbar .download-url-wrapper .select-label {
-        color: #3b4151;
-      }
-    </style>
   </body>
 </html>
