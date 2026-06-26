@@ -29,7 +29,15 @@ externalDocs:
   url: https://developers.pendo.io/docs/?bash#v1-api
 servers:
   - url: https://app.pendo.io/api/v1
-    description: Pendo REST API
+    description: Pendo REST API (US)
+  - url: https://app.us1.pendo.io/api/v1
+    description: Pendo REST API (US1)
+  - url: https://app.eu.pendo.io/api/v1
+    description: Pendo REST API (EU)
+  - url: https://app.au.pendo.io/api/v1
+    description: Pendo REST API (AU)
+  - url: https://app.jpn.pendo.io/api/v1
+    description: Pendo REST API (Japan)
 
 tags:
   - name: Admin
@@ -2086,7 +2094,15 @@ paths:
         and `context` objects.
       servers:
         - url: https://data.pendo.io
-          description: Pendo Track & Conversations ingest endpoint
+          description: Pendo Track & Conversations ingest endpoint (US)
+        - url: https://data.us1.pendo.io
+          description: Pendo Track & Conversations ingest endpoint (US1)
+        - url: https://data.eu.pendo.io
+          description: Pendo Track & Conversations ingest endpoint (EU)
+        - url: https://data.au.pendo.io
+          description: Pendo Track & Conversations ingest endpoint (AU)
+        - url: https://data.jpn.pendo.io
+          description: Pendo Track & Conversations ingest endpoint (Japan)
       requestBody:
         required: true
         content:
@@ -2133,7 +2149,15 @@ paths:
         The `type` field should be `"prompt"` or `"response"`.
       servers:
         - url: https://data.pendo.io
-          description: Pendo Track & Conversations ingest endpoint
+          description: Pendo Track & Conversations ingest endpoint (US)
+        - url: https://data.us1.pendo.io
+          description: Pendo Track & Conversations ingest endpoint (US1)
+        - url: https://data.eu.pendo.io
+          description: Pendo Track & Conversations ingest endpoint (EU)
+        - url: https://data.au.pendo.io
+          description: Pendo Track & Conversations ingest endpoint (AU)
+        - url: https://data.jpn.pendo.io
+          description: Pendo Track & Conversations ingest endpoint (Japan)
       requestBody:
         required: true
         content:
